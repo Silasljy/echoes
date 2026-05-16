@@ -27,7 +27,9 @@ export default {
             evidence.forEach(ev => parts.push(`- ${ev.text}`))
         }
 
-        const systemPrompt = parts.join('\n') + '\n请以该角色风格、认知限制和史料为依据回答，必要时说明不确定性。'
+        // Add an explicit refusal rule to the system prompt to enforce knowledge boundaries
+        const refusalInstruction = '如果问题涉及超出上述知识范围（例如春秋之后的人物、事件、现代科技或未来事务），请不要编造答案，直接回复："关于此事我无法确定"，然后将话题引回与本角色相关的伦理或教导。'
+        const systemPrompt = parts.join('\n') + '\n' + refusalInstruction + '\n请以该角色风格、认知限制和史料为依据回答，必要时说明不确定性。'
 
         try {
             const resp = await axios.post(
@@ -44,7 +46,17 @@ export default {
                 { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` } }
             )
 
-            const message = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
+            let message = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
+
+            // Post-process: check for forbidden phrases in constitution to avoid persona drift
+            const forbidden: string[] = (constitution as any).forbiddenPhrases || []
+            const lower = String(message).toLowerCase()
+            const hasForbidden = forbidden.some(fp => lower.includes(fp.toLowerCase()))
+            if (hasForbidden) {
+                // refuse to answer if model drifted into other persona
+                return '关于此事我无法确定。我们不应超出本角色的知识范围；不如我们回到儒家伦理的讨论。'
+            }
+
             return message
         } catch (err: any) {
             console.error('DeepSeek call failed:', err.response?.data || err.message)

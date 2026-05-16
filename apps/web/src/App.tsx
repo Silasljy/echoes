@@ -22,9 +22,18 @@ export default function App() {
         <div className="container">
             <h1>Echoes — 历史人物对话</h1>
             <div className="controls">
-                <label>人物：<input value={role} onChange={e => setRole(e.target.value)} /></label>
-                <label>问题：<input value={input} onChange={e => setInput(e.target.value)} /></label>
-                <button onClick={send}>发送</button>
+                <div className="field">
+                    <label>人物</label>
+                    <input value={role} onChange={e => setRole(e.target.value)} />
+                </div>
+                <div className="field grow">
+                    <label>问题</label>
+                    <input value={input} onChange={e => setInput(e.target.value)} />
+                </div>
+                <div className="field">
+                    <label>&nbsp;</label>
+                    <button className="primary" onClick={send}>发送</button>
+                </div>
             </div>
             <div className="output">
                 <h2>回复</h2>
