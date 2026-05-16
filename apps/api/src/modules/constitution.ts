@@ -3,6 +3,7 @@ export type Constitution = {
     instructions: string
     knowledgeScope?: string
     denyList?: string[]
+    forbiddenPhrases?: string[]
 }
 
 const kongzi: Constitution = {
