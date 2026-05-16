@@ -1,0 +1,12 @@
+{
+    "name": "echoes",
+    "private": true,
+    "version": "0.1.0",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "start:api": "pnpm --filter @echoes/api dev"
+    }
+}
