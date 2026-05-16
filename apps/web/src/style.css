@@ -90,6 +90,24 @@ button {
     border-radius: 6px
 }
 
+.reply {
+    background: #f7f7f8;
+    padding: 12px;
+    border-radius: 8px
+}
+
+.reply p {
+    margin: 0 0 8px 0;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word
+}
+
+.reply p.muted {
+    color: #777;
+    font-style: italic
+}
+
 .evidence-list {
     display: flex;
     flex-direction: column;

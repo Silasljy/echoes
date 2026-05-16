@@ -37,7 +37,19 @@ export default function App() {
             </div>
             <div className="output">
                 <h2>回复</h2>
-                <pre>{reply}</pre>
+                <div className="reply">
+                    {reply ? (
+                        reply
+                            .split(/(?<=[。！？?!;；\.])/u)
+                            .map((s: string) => s.trim())
+                            .filter((s: string) => s.length > 0)
+                            .map((para: string, idx: number) => (
+                                <p key={idx}>{para}</p>
+                            ))
+                    ) : (
+                        <p className="muted">（暂无回复）</p>
+                    )}
+                </div>
                 {evidence && evidence.length > 0 && (
                     <>
                         <h3>参考</h3>
