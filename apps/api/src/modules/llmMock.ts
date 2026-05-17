@@ -3,11 +3,9 @@ import { Constitution } from './constitution'
 type MemoryPack = { summary: string; recent: Array<{ user: string; assistant: string }> }
 
 export default {
-    async generateReply({ constitution, memoryPack, input, evidence }:
-        { constitution: Constitution; memoryPack: MemoryPack; input: string; evidence: Array<{ id: string; text: string }> }) {
-        // This is a deterministic simulator of LLM behavior for development.
-        // It combines constitution instructions, short memory, and injected evidence.
-        // Build an internal prompt (kept internal) to simulate model input
+    async generateReply({ constitution, memoryPack, input, evidence, requireCitation }:
+        { constitution: Constitution; memoryPack: MemoryPack; input: string; evidence: Array<{ id: string; text: string }>; requireCitation?: boolean }) {
+        // Deterministic simulator of LLM behavior for development.
         const internalParts: string[] = []
         internalParts.push(`角色说明：${constitution.instructions}`)
         if (memoryPack.summary) internalParts.push(`记忆摘要：${memoryPack.summary}`)
@@ -32,8 +30,8 @@ export default {
         const shortAnswer = '行己安人，以礼为先，仁为本。'
         const response = `${constitution.name}（模拟回应）：\n${shortAnswer}`
 
-        // (internalPrompt is kept for logging/debugging but not returned to user)
         // console.debug('Internal prompt for LLM simulation:\n', internalPrompt)
+        if (requireCitation) return response + '\n引用证据IDs: 无'
         return response
     }
 }

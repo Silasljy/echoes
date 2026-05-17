@@ -223,7 +223,7 @@ export default function App() {
                 </div>
                 {evidence && evidence.length > 0 && (
                     <>
-                        <h3>参考</h3>
+                        <h3>参考（AI 生成，未经证实）</h3>
                         <div className="evidence-list">
                             {evidence.map((ev: any, idx: number) => (
                                 <div key={idx} className="evidence-item">
