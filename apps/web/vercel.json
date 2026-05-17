@@ -2,11 +2,11 @@
     "rewrites": [
         {
             "source": "/api/(.*)",
-            "destination": "https://api.gyx.luxe/$1"
+            "destination": "https://gyx.luxe/api/$1"
         },
         {
             "source": "/health",
-            "destination": "https://api.gyx.luxe/health"
+            "destination": "https://gyx.luxe/health"
         }
     ]
 }
