@@ -36,189 +36,197 @@ body {
     display: flex;
     align-items: center;
     justify-content: flex-end;
+}
+
+.field input {
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.field select {
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    background: white;
+}
+
+.field textarea {
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 84px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 15px;
+}
+
+.custom-role {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.primary {
+    background: #0b63ff;
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.primary:hover {
+    background: #0958e6;
+}
+
+.output {
+    margin-top: 18px;
+}
+
+.output h2 {
+    margin-bottom: 8px;
+}
+
+.evidence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.evidence-item pre {
+    background: #fafafa;
+    padding: 8px;
+    border-radius: 6px;
+    font-family: SimSun, '宋体', 'Songti SC', 'STSong', serif;
+    font-size: 15px;
+    color: #222;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+}
+
+input {
+    padding: 6px 8px;
+}
+
+button {
+    padding: 8px 12px;
+}
+
+.output pre {
+    background: #f7f7f8;
+    padding: 12px;
+    border-radius: 6px;
+}
+
+.reply {
+    background: #f7f7f8;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.reply p {
+    margin: 0 0 8px 0;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: block;
+}
+
+.reply p.muted {
+    color: #777;
+    font-style: italic;
+}
+
+/* Enhanced visual styles */
+h1 {
+    font-size: 20px;
+    margin-bottom: 12px;
+}
+
+h2,
+h3 {
+    color: #333;
+}
+
+.reply {
+    background: linear-gradient(180deg, #fbfcfd, #f7f7f8);
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    transition: box-shadow .2s ease;
+    max-height: 420px;
+    overflow: auto;
+}
+
+.reply:hover {
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
+}
+
+/* message bubble look for agent replies */
+.reply p {
+    background: white;
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin: 0 0 10px 0;
+    box-shadow: 0 4px 10px rgba(16, 24, 40, 0.04);
+    font-family: SimSun, '宋体', 'Songti SC', 'STSong', serif;
+    font-size: 15px;
+    color: #222;
+}
+
+/* muted note styling inside reply */
+.reply p.muted {
+    background: transparent;
+    color: #666;
+    font-style: italic;
+    box-shadow: none;
+}
 
 
-    .field select {
-        padding: 8px 10px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        width: 100%;
-        box-sizing: border-box;
-        background: white;
+/* Responsive: stack controls on narrow screens */
+@media (max-width: 800px) {
+    .controls {
+        grid-template-columns: 1fr;
+        gap: 10px;
     }
 
-    .field textarea {
-        padding: 10px 12px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        width: 100%;
-        box-sizing: border-box;
-        min-height: 84px;
-        resize: vertical;
-        font-family: inherit;
-        font-size: 15px;
+    .field.role {
+        flex-basis: auto;
     }
 
-    .custom-role {
-        margin-top: 6px;
-        padding: 8px 10px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
+    .field,
     .primary {
-        background: #0b63ff;
-        color: white;
-        border: none;
-        padding: 10px 14px;
-        border-radius: 6px;
-        cursor: pointer;
+        width: 100%;
     }
 
-    .primary:hover {
-        background: #0958e6;
+    .field.send {
+        justify-content: center;
     }
+}
 
-    .output {
-        margin-top: 18px;
-    }
+/* subtle scrollbar for reply area */
+.reply::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
 
-    .output h2 {
-        margin-bottom: 8px;
-    }
+.reply::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+}
 
-    .evidence-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .evidence-item pre {
-        background: #fafafa;
-        padding: 8px;
-        border-radius: 6px;
-        font-family: SimSun, '宋体', 'Songti SC', 'STSong', serif;
-        font-size: 15px;
-        color: #222;
-        white-space: pre-wrap;
-        word-break: break-word;
-        margin: 0;
-    }
-
-    input {
-        padding: 6px 8px;
-    }
-
-    button {
-        padding: 8px 12px;
-    }
-
-    .output pre {
-        background: #f7f7f8;
-        padding: 12px;
-        border-radius: 6px;
-    }
-
-    .reply {
-        background: #f7f7f8;
-        padding: 12px;
-        border-radius: 8px;
-    }
-
-    .reply p {
-        margin: 0 0 8px 0;
-        line-height: 1.7;
-        white-space: pre-wrap;
-        word-break: break-word;
-        display: block;
-    }
-
-    .reply p.muted {
-        color: #777;
-        font-style: italic;
-    }
-
-    /* Enhanced visual styles */
-    h1 {
-        font-size: 20px;
-        margin-bottom: 12px;
-    }
-
-    h2,
-    h3 {
-        color: #333;
-    }
-
-    .reply {
-        background: linear-gradient(180deg, #fbfcfd, #f7f7f8);
-        padding: 16px;
-        border-radius: 12px;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-        transition: box-shadow .2s ease;
-        max-height: 420px;
-        overflow: auto;
-    }
-
-    .reply:hover {
-        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
-    }
-
-    /* message bubble look for agent replies */
-    .reply p {
-        background: white;
-        padding: 12px 14px;
-        border-radius: 10px;
-        margin: 0 0 10px 0;
-        box-shadow: 0 4px 10px rgba(16, 24, 40, 0.04);
-        font-family: SimSun, '宋体', 'Songti SC', 'STSong', serif;
-        font-size: 15px;
-        color: #222;
-    }
-
-    /* muted note styling inside reply */
-    .reply p.muted {
-        background: transparent;
-        color: #666;
-        font-style: italic;
-        box-shadow: none;
-    }
-
-
-    /* Responsive: stack controls on narrow screens */
-    @media (max-width: 800px) {
-        .controls {
-            grid-template-columns: 1fr;
-            gap: 10px;
-        }
-
-        .field.role {
-            flex-basis: auto;
-        }
-
-        .field,
-        .primary {
-            width: 100%;
-        }
-
-        .field.send {
-            justify-content: center;
-        }
-    }
-
-    /* subtle scrollbar for reply area */
-    .reply::-webkit-scrollbar {
-        height: 8px;
-        width: 8px;
-    }
-
-    .reply::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.08);
-        border-radius: 8px;
-    }
-
-    /* small helpers */
-    .muted {
-        color: #666;
-    }
+/* small helpers */
+.muted {
+    color: #666;
+}
