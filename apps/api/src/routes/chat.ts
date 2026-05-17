@@ -10,10 +10,11 @@ const router = Router()
 
 router.post('/', async (req, res) => {
     try {
-        const { role, input, mode } = req.body as { role: string; input: string; mode?: string }
+        const { role, input, mode, userId } = req.body as { role: string; input: string; mode?: string; userId?: string }
 
+        const uid = userId || 'anon'
         const constitution = ConstitutionService.getConstitution(role)
-        const memoryPack = ContextManager.buildMemoryPack(role)
+        const memoryPack = ContextManager.buildMemoryPack(uid, role)
 
         // simple heuristic to decide when to inject knowledge
         const evidence = KnowledgeService.search(role, input, 3)
@@ -30,13 +31,13 @@ router.post('/', async (req, res) => {
             reply = await LLM.generateReply({ constitution, memoryPack, input, evidence })
         }
 
-        // update memory store
-        ContextManager.appendTurn(role, { user: input, assistant: reply })
+        // update memory store (per user)
+        ContextManager.appendTurn(uid, role, { user: input, assistant: reply })
 
         // optional analysis for end-of-session or on demand
         let analysis = null
         if (mode === 'analyze') {
-            const dialogue = ContextManager.getDialogue(role)
+            const dialogue = ContextManager.getDialogue(uid, role)
             analysis = AnalysisService.analyze(dialogue)
         }
 

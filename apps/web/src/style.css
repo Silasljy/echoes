@@ -230,3 +230,17 @@ h3 {
 .muted {
     color: #666;
 }
+
+/* history panel */
+.history-panel {
+    margin-top: 12px;
+    padding: 12px;
+    background: linear-gradient(180deg, #fff, #fbfbfc);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
+}
+
+.history-panel button {
+    padding: 6px 10px;
+    border-radius: 6px;
+}
