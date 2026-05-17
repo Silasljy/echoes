@@ -3,16 +3,18 @@ import path from 'path'
 import dotenv from 'dotenv'
 import app from './app'
 
-// Load .env from apps/api/.env if present, otherwise fallback to root .env
-const root = process.cwd()
-const apiEnv = path.join(root, 'apps', 'api', '.env')
-const rootEnv = path.join(root, '.env')
-if (fs.existsSync(apiEnv)) {
-    dotenv.config({ path: apiEnv })
-    console.log(`Loaded environment from ${apiEnv}`)
-} else if (fs.existsSync(rootEnv)) {
-    dotenv.config({ path: rootEnv })
-    console.log(`Loaded environment from ${rootEnv}`)
+// Load .env relative to this file so PM2/Node cwd does not matter.
+const candidateEnvPaths = [
+    path.resolve(__dirname, '..', '.env'),
+    path.resolve(__dirname, '..', '..', '.env'),
+    path.resolve(process.cwd(), 'apps', 'api', '.env'),
+    path.resolve(process.cwd(), '.env'),
+]
+
+const loadedEnvPath = candidateEnvPaths.find((envPath) => fs.existsSync(envPath))
+if (loadedEnvPath) {
+    dotenv.config({ path: loadedEnvPath })
+    console.log(`Loaded environment from ${loadedEnvPath}`)
 } else {
     console.log('No .env file found; relying on process environment variables')
 }

@@ -40,3 +40,5 @@ pnpm --filter @echoes/web dev
 ```
 
 DeepSeek 集成：将密钥放到本地环境变量 `DEEPSEEK_API_KEY`（或使用 .env 文件并在运行前加载），后端会优先使用 DeepSeek，失败或未配置时回退为本地模拟器。
+
+部署提醒：生产环境请在 `apps/api/.env` 中放置 `DEEPSEEK_API_KEY`，然后重启 `pm2`；后端会自动从 `apps/api/.env`、项目根目录 `.env` 或进程环境变量中读取。
