@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 export default function App() {
     const [role, setRole] = useState('孔子')
     const [input, setInput] = useState('什么是仁？')
     const [customRole, setCustomRole] = useState('')
+    const [roles, setRoles] = useState<string[]>(['孔子', '孟子', '老子', '庄子', '自定义'])
     const [reply, setReply] = useState<string | null>(null)
     const [evidence, setEvidence] = useState<any>(null)
 
@@ -20,6 +21,26 @@ export default function App() {
         setEvidence(data.evidence)
     }
 
+    useEffect(() => {
+        let mounted = true
+            ; (async () => {
+                try {
+                    const res = await fetch('/roles')
+                    const data = await res.json()
+                    if (mounted && data && Array.isArray(data.roles)) {
+                        const list = [...data.roles]
+                        if (!list.includes('自定义')) list.push('自定义')
+                        setRoles(list)
+                        if (!list.includes(role)) setRole(list[0] || '自定义')
+                    }
+                } catch (err) {
+                    // ignore and keep defaults
+                    console.warn('failed to fetch roles', err)
+                }
+            })()
+        return () => { mounted = false }
+    }, [])
+
     return (
         <div className="container">
             <h1>Echoes — 历史人物对话</h1>
@@ -27,11 +48,9 @@ export default function App() {
                 <div className="field role">
                     <label>人物</label>
                     <select value={role} onChange={e => setRole(e.target.value)}>
-                        <option value="孔子">孔子</option>
-                        <option value="孟子">孟子</option>
-                        <option value="老子">老子</option>
-                        <option value="庄子">庄子</option>
-                        <option value="自定义">自定义</option>
+                        {roles.map(r => (
+                            <option key={r} value={r}>{r}</option>
+                        ))}
                     </select>
                     {role === '自定义' && (
                         <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />

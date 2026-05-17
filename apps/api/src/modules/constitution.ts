@@ -26,5 +26,8 @@ export default {
             name: role,
             instructions: `你扮演 ${role}，保持角色一致性。回答时表明可能的不确定性。`,
         }
+    },
+    listRoles() {
+        return Object.keys(constitutions)
     }
 }
