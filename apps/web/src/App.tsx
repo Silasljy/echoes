@@ -4,6 +4,7 @@ type LocalTurn = { user: string; assistant: string; ts: number }
 
 export default function App() {
     const [role, setRole] = useState('孔子')
+    const apiBase = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:4000'
     const [input, setInput] = useState('什么是仁？')
     const [customRole, setCustomRole] = useState('')
     const [roles, setRoles] = useState<string[]>(['孔子', '孟子', '老子', '庄子', '自定义'])
@@ -61,7 +62,7 @@ export default function App() {
         const uid = userId || getOrCreateLocalUserId()
         if (!userId) setUserId(uid)
 
-        const res = await fetch('/chat', {
+        const res = await fetch(`${apiBase}/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: roleToSend, input, userId: uid })
@@ -81,7 +82,7 @@ export default function App() {
         let mounted = true
             ; (async () => {
                 try {
-                    const res = await fetch('/roles')
+                    const res = await fetch(`${apiBase}/roles`)
                     const data = await res.json()
                     if (mounted && data && Array.isArray(data.roles)) {
                         // backend returns array of role objects {id,name,...}
@@ -105,11 +106,11 @@ export default function App() {
                 const payload = JSON.stringify({ userId: uid })
                 const blob = new Blob([payload], { type: 'application/json' })
                 if (navigator.sendBeacon) {
-                    navigator.sendBeacon('/session/end', blob)
+                    navigator.sendBeacon(`${apiBase}/session/end`, blob)
                 } else {
                     // fallback synchronous XHR (may be blocked in some browsers)
                     const xhr = new XMLHttpRequest()
-                    xhr.open('POST', '/session/end', false)
+                    xhr.open('POST', `${apiBase}/session/end`, false)
                     xhr.setRequestHeader('Content-Type', 'application/json')
                     try { xhr.send(payload) } catch (e) { /* ignore */ }
                 }
