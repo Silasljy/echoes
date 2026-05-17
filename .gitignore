@@ -17,6 +17,24 @@ build/
 apps/**/.env
 apps/**/.env.local
 apps/**/.env.*.local
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+certs/
+ssl/
+deploy/certs/
+deploy/ssl/
+apps/**/data/
+apps/**/tmp/
+apps/**/uploads/
+apps/**/logs/
+*.sqlite
+*.sqlite3
+*.db
+
 
 # Logs
 npm-debug.log*
