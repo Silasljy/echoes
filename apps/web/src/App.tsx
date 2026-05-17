@@ -84,7 +84,8 @@ export default function App() {
                     const res = await fetch('/roles')
                     const data = await res.json()
                     if (mounted && data && Array.isArray(data.roles)) {
-                        const list = [...data.roles]
+                        // backend returns array of role objects {id,name,...}
+                        const list = data.roles.map((r: any) => (r && (r.name || r.id)) || String(r))
                         if (!list.includes('自定义')) list.push('自定义')
                         setRoles(list)
                         if (!list.includes(role)) setRole(list[0] || '自定义')
