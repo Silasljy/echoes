@@ -3,15 +3,17 @@ import React, { useState } from 'react'
 export default function App() {
     const [role, setRole] = useState('孔子')
     const [input, setInput] = useState('什么是仁？')
+    const [customRole, setCustomRole] = useState('')
     const [reply, setReply] = useState<string | null>(null)
     const [evidence, setEvidence] = useState<any>(null)
 
     async function send() {
         setReply('加载中...')
+        const roleToSend = role === '自定义' ? (customRole || '未知人物') : role
         const res = await fetch('/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role, input })
+            body: JSON.stringify({ role: roleToSend, input })
         })
         const data = await res.json()
         setReply(data.reply)
@@ -22,15 +24,33 @@ export default function App() {
         <div className="container">
             <h1>Echoes — 历史人物对话</h1>
             <div className="controls">
-                <div className="field">
+                <div className="field role">
                     <label>人物</label>
-                    <input value={role} onChange={e => setRole(e.target.value)} />
+                    <select value={role} onChange={e => setRole(e.target.value)}>
+                        <option value="孔子">孔子</option>
+                        <option value="孟子">孟子</option>
+                        <option value="老子">老子</option>
+                        <option value="庄子">庄子</option>
+                        <option value="自定义">自定义</option>
+                    </select>
+                    {role === '自定义' && (
+                        <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />
+                    )}
                 </div>
-                <div className="field grow">
+                <div className="field grow question">
                     <label>问题</label>
-                    <input value={input} onChange={e => setInput(e.target.value)} />
+                    <textarea
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                send()
+                            }
+                        }}
+                    />
                 </div>
-                <div className="field">
+                <div className="field send">
                     <label>&nbsp;</label>
                     <button className="primary" onClick={send}>发送</button>
                 </div>

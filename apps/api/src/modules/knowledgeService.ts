@@ -11,12 +11,25 @@ const db: Record<string, Evidence[]> = {
 export default {
     search(role: string, query: string, limit = 3): Evidence[] {
         const pool = db[role] || []
-        // naive relevance: include those containing any token
-        const tokens = query.split(/\s+|，|。|；|、|\?|\!|\?|\u3002/).filter(Boolean)
+
+        // Tokenization: handle Chinese (no spaces) by splitting to characters,
+        // otherwise split on common delimiters. This avoids always returning
+        // the fixed sample when Chinese queries have no whitespace.
+        let tokens = query.split(/\s+|，|。|；|、|\?|\!|\u3002/).filter(Boolean)
+        const hasCJK = /[\u4e00-\u9fff]/.test(query)
+        if (hasCJK && tokens.length === 1) {
+            // break into characters (skip very common punctuation)
+            tokens = Array.from(query).filter(ch => ch.trim().length > 0)
+        }
+
         const scored = pool.map(e => {
-            const score = tokens.reduce((s, t) => s + (e.text.includes(t) ? 1 : 0), 0)
+            // score by how many token substrings appear in the evidence text
+            const text = e.text || ''
+            let score = 0
+            tokens.forEach(t => { if (t && text.includes(t)) score += 1 })
             return { e, score }
         }).filter(x => x.score > 0)
+
         scored.sort((a, b) => b.score - a.score)
         const results = scored.slice(0, limit).map(s => s.e)
         // if no direct hit, return top N
