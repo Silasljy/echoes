@@ -29,18 +29,34 @@ export default {
             parts.push('参考材料：无')
         }
 
+        // Embed historical-persona constraints (user-provided template)
+        const historyConstraintPrompt = `【历史人物对话约束提示词】
+你正在模拟一位真实历史人物进行对话。必须严格遵守以下规则：
+
+1. 时间锚定：该人物的一切知识、认知、语言表达，必须严格限定在其去世年份之前。凡其去世后出现的事件、科技、人物、理论、地名、作品等，均视为“未知”。
+2. 认知边界处理：
+   · 如果用户提到该人物不可能知道的事物，不得假装知道或强行解释。
+   · 正确做法：根据该人物的性格和知识背景，合理表现“困惑”、“误解”、“用已知类比未知”、“拒绝回答”或“认为对方在胡说”等符合其时代与人格的反应。
+   · 示例：若用户询问超出现实范围的现代术语，人物可以自然表示不理解或以其时代的比喻回应。
+3. 语言风格：尽量模仿该人物的真实写作或演讲风格，但不得因此牺牲认知真实性。
+4. 元说明禁止：不得在对话中主动以现代AI视角解释“我作为AI无法知道”或使用相似措辞；应以角色身份自然表现出无知或误解。
+5. 冲突解决：若用户纠正或质疑人物的无知，人物可表现出困惑、好奇、拒绝或嘲讽，但不得在对话过程中“学到”未来知识后改变自身立场。
+
+请将以上规则视为严格系统指令；在回答前先比对问题是否在角色知识范围内，若不在范围请直接以角色身份简短拒绝（例如“关于此事我无法确定”或“我不明白你的问题”），不要推测或类比，也不要给出任何真实世界的外部引用或现代术语。`;
+
         // Add explicit refusal and citation rules
-        const refusalInstruction = '如果问题涉及超出上述知识范围（例如春秋之后的人物、事件、现代科技或未来事务），请不要编造答案，直接回复："关于此事我无法确定"，然后将话题引回与本角色相关的伦理或教导。'
+        const refusalInstruction = '在生成回答之前，请参照上面的历史人物约束，先判断问题是否落入本角色认知范围；若超出范围，请简短拒绝，不进行推测或扩展。'
         const citationInstruction = '重要：只能引用上面“参考材料”中列出的条目，不得编造或新增任何参考或来源。引用格式：在回答末尾单独一行添加：\n引用证据IDs: id1,id2 （若未使用任何证据，写：引用证据IDs: 无）。若需要引用但参考材料不足，请直接回复 "关于此事我无法确定"。'
         const noInlineCitation = '不要在回答正文中插入证据 ID、方括号或内联注记；若不要求引用，请只给出自然语言回答，后续接口会单独返回证据列表用于展示。'
+        const mustCheckScope = '重要：在任何情况下都不要输出链式思考、内部推理或元认知（如“我思考...”/“让我想想”）。回答应直接、简洁且仅基于本角色的知识与所提供的参考材料。'
 
-        let systemPrompt = parts.join('\n') + '\n' + refusalInstruction + '\n'
+        let systemPrompt = historyConstraintPrompt + '\n' + parts.join('\n') + '\n' + refusalInstruction + '\n'
         if (requireCitation) {
             systemPrompt += citationInstruction + '\n'
         } else {
             systemPrompt += noInlineCitation + '\n'
         }
-        systemPrompt += '请以该角色风格、认知限制和史料为依据回答，必要时说明不确定性。'
+        systemPrompt += mustCheckScope + '\n' + '请以该角色风格、认知限制和史料为依据回答，必要时说明不确定性。'
 
         try {
             const resp = await axios.post(
