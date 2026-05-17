@@ -4,7 +4,14 @@ type LocalTurn = { user: string; assistant: string; ts: number }
 
 export default function App() {
     const [role, setRole] = useState('孔子')
-    const apiBase = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:4000'
+    const apiBase = (() => {
+        const envBase = (import.meta as any).env?.VITE_API_BASE
+        if (envBase) return envBase
+        if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+            return 'http://localhost:4000'
+        }
+        return '/api'
+    })()
     const [input, setInput] = useState('什么是仁？')
     const [customRole, setCustomRole] = useState('')
     const [roles, setRoles] = useState<string[]>(['孔子', '孟子', '老子', '庄子', '自定义'])
