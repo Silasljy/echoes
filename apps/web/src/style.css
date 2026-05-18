@@ -1,36 +1,93 @@
+:root {
+    /* Color system */
+    --color-primary: #0b63ff;
+    --color-secondary: #374151;
+    --color-neutral-100: #f8f9fa;
+    --color-neutral-200: #f3f4f6;
+    --color-neutral-300: #e5e7eb;
+    --color-neutral-400: #d1d5db;
+    --color-neutral-500: #9ca3af;
+    --color-success: #16a34a;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --text-tertiary: #9ca3af;
+
+    /* Typography (px scale) */
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 20px;
+    --text-xl: 24px;
+    --text-2xl: 32px;
+
+    /* Spacing (4px base) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-12: 48px;
+    --space-16: 64px;
+
+    /* Radii */
+    --radius-1: 6px;
+    --radius-2: 8px;
+
+    /* Shadows */
+    --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Base layout */
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
 body {
-    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-    padding: 24px;
+    margin: 0;
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    background: var(--color-neutral-100);
+    color: var(--text-primary);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    padding: var(--space-6);
 }
 
 .container {
     max-width: 900px;
     margin: 0 auto;
+    background: #ffffff;
+    padding: var(--space-6);
+    border-radius: var(--radius-2);
 }
 
+/* Controls grid */
 .controls {
     display: grid;
     grid-template-columns: minmax(120px, 180px) 1fr minmax(90px, 140px);
-    gap: 12px;
+    gap: var(--space-3);
     align-items: end;
-    margin-bottom: 24px;
+    margin-bottom: var(--space-6);
 }
 
 .field {
-    /* container for input fields: label above control to avoid overlap */
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    align-items: stretch;
+    gap: var(--space-2);
 }
 
 .field.grow {
-    flex: 0 0 58%;
     min-width: 220px;
 }
-
-/* .field.role intentionally left to grid placement (no custom rules) */
-
 
 .field.send {
     display: flex;
@@ -38,176 +95,131 @@ body {
     justify-content: flex-end;
 }
 
-.field input {
-    padding: 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
+label {
+    font-weight: 600;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
 }
 
-.field select {
-    padding: 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
-    background: white;
-}
-
-.field textarea {
+select,
+input,
+textarea {
+    font-family: inherit;
+    font-size: var(--text-base);
     padding: 10px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
+    border: 1px solid var(--color-neutral-400);
+    border-radius: var(--radius-1);
+    background: #fff;
+    color: var(--text-primary);
+}
+
+textarea {
     min-height: 84px;
     resize: vertical;
-    font-family: inherit;
-    font-size: 15px;
 }
 
 .custom-role {
-    margin-top: 6px;
-    padding: 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
+    margin-top: var(--space-2);
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 14px;
+    border-radius: var(--radius-1);
+    cursor: pointer;
+    font-weight: 600;
+    border: 1px solid transparent
 }
 
 .primary {
-    background: #0b63ff;
+    background: var(--color-primary);
     color: white;
-    border: none;
-    padding: 10px 14px;
-    border-radius: 6px;
-    cursor: pointer;
+    border-color: var(--color-primary);
 }
 
 .primary:hover {
     background: #0958e6;
+    border-color: #0958e6;
 }
 
+.secondary {
+    background: transparent;
+    color: var(--color-primary);
+    border: 1px solid var(--color-neutral-300);
+}
+
+.secondary:hover {
+    background: rgba(11, 99, 255, 0.06);
+}
+
+/* Output areas */
 .output {
-    margin-top: 18px;
+    margin-top: var(--space-4);
 }
 
 .output h2 {
-    margin-bottom: 8px;
+    margin-bottom: var(--space-2);
+    font-size: var(--text-lg);
+}
+
+.reply {
+    background: #ffffff;
+    padding: var(--space-3);
+    border-radius: var(--radius-2);
+    box-shadow: var(--shadow-1);
+    max-height: 420px;
+    overflow: auto;
+}
+
+.reply p {
+    margin: 0 0 var(--space-3) 0;
+    line-height: 1.7;
+}
+
+.reply p.muted {
+    color: var(--text-secondary);
+    font-style: italic;
 }
 
 .evidence-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-2);
 }
 
 .evidence-item pre {
-    background: #fafafa;
-    padding: 8px;
-    border-radius: 6px;
-    font-family: SimSun, '宋体', 'Songti SC', 'STSong', serif;
-    font-size: 15px;
-    color: #222;
-    white-space: pre-wrap;
-    word-break: break-word;
+    background: var(--color-neutral-200);
+    padding: var(--space-2);
+    border-radius: var(--radius-1);
     margin: 0;
+    color: var(--text-primary);
+    font-family: ui-serif, Georgia, 'Times New Roman', Times, serif;
 }
 
-input {
-    padding: 6px 8px;
+/* History cards use border (not both border+shadow) */
+.history-panel {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-2);
+    background: #fff;
 }
 
-button {
-    padding: 8px 12px;
+.history-item {
+    padding: var(--space-3);
+    border-radius: var(--radius-1);
+    background: #fff;
+    box-shadow: var(--shadow-1);
 }
 
-.output pre {
-    background: #f7f7f8;
-    padding: 12px;
-    border-radius: 6px;
+.muted {
+    color: var(--text-secondary);
 }
 
-.reply {
-    background: #f7f7f8;
-    padding: 12px;
-    border-radius: 8px;
-}
-
-.reply p {
-    margin: 0 0 8px 0;
-    line-height: 1.7;
-    white-space: pre-wrap;
-    word-break: break-word;
-    display: block;
-}
-
-.reply p.muted {
-    color: #777;
-    font-style: italic;
-}
-
-/* Enhanced visual styles */
-h1 {
-    font-size: 20px;
-    margin-bottom: 12px;
-}
-
-h2,
-h3 {
-    color: #333;
-}
-
-.reply {
-    background: linear-gradient(180deg, #fbfcfd, #f7f7f8);
-    padding: 16px;
-    border-radius: 12px;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-    transition: box-shadow .2s ease;
-    max-height: 420px;
-    overflow: auto;
-}
-
-.reply:hover {
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
-}
-
-/* message bubble look for agent replies */
-.reply p {
-    background: white;
-    padding: 12px 14px;
-    border-radius: 10px;
-    margin: 0 0 10px 0;
-    box-shadow: 0 4px 10px rgba(16, 24, 40, 0.04);
-    font-family: SimSun, '宋体', 'Songti SC', 'STSong', serif;
-    font-size: 15px;
-    color: #222;
-}
-
-/* muted note styling inside reply */
-.reply p.muted {
-    background: transparent;
-    color: #666;
-    font-style: italic;
-    box-shadow: none;
-}
-
-
-/* Responsive: stack controls on narrow screens */
+/* Responsive */
 @media (max-width: 800px) {
     .controls {
         grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .field.role {
-        flex-basis: auto;
-    }
-
-    .field,
-    .primary {
-        width: 100%;
     }
 
     .field.send {
@@ -215,32 +227,34 @@ h3 {
     }
 }
 
-/* subtle scrollbar for reply area */
-.reply::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
+/* Small helpers */
+.flex {
+    display: flex;
+    gap: var(--space-2);
 }
 
-.reply::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.08);
-    border-radius: 8px;
+.row-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-/* small helpers */
-.muted {
-    color: #666;
+.col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
 }
 
-/* history panel */
-.history-panel {
-    margin-top: 12px;
-    padding: 12px;
-    background: linear-gradient(180deg, #fff, #fbfbfc);
-    border-radius: 10px;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.03);
+.mt-3 {
+    margin-top: var(--space-3);
 }
 
-.history-panel button {
-    padding: 6px 10px;
-    border-radius: 6px;
+.mt-2 {
+    margin-top: var(--space-2);
+}
+
+.meta {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin-bottom: 6px;
 }

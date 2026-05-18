@@ -173,9 +173,9 @@ export default function App() {
                 </div>
                 <div className="field send">
                     <label>&nbsp;</label>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="primary" onClick={send}>发送</button>
-                        <button onClick={() => {
+                    <div className="flex">
+                        <button className="btn primary" onClick={send}>发送</button>
+                        <button className="btn secondary" onClick={() => {
                             const uid = userId || getOrCreateLocalUserId()
                             const roleToShow = role === '自定义' ? (customRole || '未知人物') : role
                             setUserId(uid)
@@ -189,10 +189,10 @@ export default function App() {
                 <div className="output">
                     <h2>本地历史（仅保存在此浏览器）</h2>
                     <div className="history-panel">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="row-between">
                             <div className="muted">用户 ID: {userId}</div>
                             <div>
-                                <button onClick={() => {
+                                <button className="btn secondary" onClick={() => {
                                     if (!userId) return
                                     localStorage.removeItem(`echoes.history.${userId}`)
                                     setHistory([])
@@ -202,12 +202,12 @@ export default function App() {
                         {history.length === 0 ? (
                             <p className="muted">（无历史）</p>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+                            <div className="col mt-3">
                                 {history.map((t, i) => (
-                                    <div key={i} style={{ padding: 12, borderRadius: 8, background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                                        <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>{new Date(t.ts).toLocaleString()}</div>
+                                    <div key={i} className="history-item">
+                                        <div className="meta">{new Date(t.ts).toLocaleString()}</div>
                                         <div><strong>用户：</strong> {t.user}</div>
-                                        <div style={{ marginTop: 8 }}><strong>助手：</strong> {t.assistant}</div>
+                                        <div className="mt-2"><strong>助手：</strong> {t.assistant}</div>
                                     </div>
                                 ))}
                             </div>
