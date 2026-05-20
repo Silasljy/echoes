@@ -6,7 +6,7 @@ import { ApiError } from '../errors'
 const router = Router()
 
 // POST /session/end  { userId: 'user-123' }
-router.post('/end', (req, res, next) => {
+router.post('/end', async (req, res, next) => {
     try {
         const parseResult = sessionEndSchema.safeParse(req.body)
         if (!parseResult.success) {
@@ -15,7 +15,7 @@ router.post('/end', (req, res, next) => {
         }
 
         const { userId } = parseResult.data
-        const ok = ContextManager.deleteDialogue(userId)
+        const ok = await ContextManager.deleteDialogue(userId)
         if (!ok) {
             throw new ApiError('not_found', 404)
         }

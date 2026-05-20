@@ -50,7 +50,7 @@ router.post('/', async (req, res, next) => {
 
         let analysis = null
         if (mode === 'analyze') {
-            const dialogue = await ContextManager.getDialogue(uid, role)
+            const dialogue = await ContextManager.getDialogue(uid, role, 100)
             analysis = AnalysisService.analyze(dialogue)
         }
 

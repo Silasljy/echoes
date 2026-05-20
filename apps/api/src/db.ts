@@ -5,69 +5,101 @@ const DB_FILE = process.env.ECHOES_DB_PATH || path.resolve(__dirname, '..', '..'
 
 type StoredTurn = { id: string; user_id: string; role: string; turn_index: number; user: string; assistant: string; created_at: number }
 
-function loadData(): { dialogue_turns: StoredTurn[] } {
+function normalizePage(value: number | undefined, defaultValue = 1, maxValue = 1000) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return defaultValue
+    return Math.min(Math.max(1, value), maxValue)
+}
+
+function normalizePageSize(value: number | undefined, defaultValue = 50, maxValue = 200) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return defaultValue
+    return Math.min(Math.max(1, value), maxValue)
+}
+
+async function loadData(): Promise<{ dialogue_turns: StoredTurn[] }> {
     try {
-        if (!fs.existsSync(DB_FILE)) return { dialogue_turns: [] }
-        const raw = fs.readFileSync(DB_FILE, 'utf8')
-        return JSON.parse(raw)
-    } catch (e) {
+        await fs.promises.access(DB_FILE, fs.constants.F_OK)
+    } catch {
         return { dialogue_turns: [] }
+    }
+
+    try {
+        const raw = await fs.promises.readFile(DB_FILE, 'utf8')
+        const parsed = JSON.parse(raw)
+        if (!parsed || !Array.isArray(parsed.dialogue_turns)) {
+            throw new Error('invalid dialogue database format')
+        }
+        return parsed
+    } catch (error) {
+        console.error(`[DB] loadData failed for ${DB_FILE}:`, error)
+        throw new Error('Failed to load dialogue database')
     }
 }
 
-function saveData(data: { dialogue_turns: StoredTurn[] }) {
+async function saveData(data: { dialogue_turns: StoredTurn[] }) {
     try {
-        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8')
-    } catch (e) {
-        console.warn('saveData failed', e)
+        await fs.promises.writeFile(DB_FILE, JSON.stringify(data, null, 2), 'utf8')
+    } catch (error) {
+        console.error(`[DB] saveData failed for ${DB_FILE}:`, error)
+        throw new Error('Failed to persist dialogue database')
     }
+}
+
+function filterTurns(data: { dialogue_turns: StoredTurn[] }, userId: string, role: string) {
+    return data.dialogue_turns.filter(t => t.user_id === userId && t.role === role)
+}
+
+function orderTurns(turns: StoredTurn[]) {
+    return turns.slice().sort((a, b) => a.turn_index - b.turn_index)
 }
 
 export default {
-    getNextTurnIndex(userId: string, role: string) {
-        const data = loadData()
-        const rows = data.dialogue_turns.filter(t => t.user_id === userId && t.role === role)
-        const max = rows.reduce((m, r) => Math.max(m, r.turn_index), 0)
-        return max + 1
-    },
-
-    appendTurn(userId: string, role: string, turn: { user: string; assistant: string }) {
-        const data = loadData()
-        const turnIndex = this.getNextTurnIndex(userId, role)
+    async appendTurn(userId: string, role: string, turn: { user: string; assistant: string }) {
+        const data = await loadData()
+        const rows = filterTurns(data, userId, role)
+        const turnIndex = rows.reduce((m, r) => Math.max(m, r.turn_index), 0) + 1
         const id = `${userId}:${role}:${Date.now()}:${Math.random().toString(16).slice(2)}`
         const rec: StoredTurn = { id, user_id: userId, role, turn_index: turnIndex, user: turn.user, assistant: turn.assistant, created_at: Date.now() }
         data.dialogue_turns.push(rec)
-        // cap to last 5000 entries globally to avoid unbounded growth
         if (data.dialogue_turns.length > 5000) data.dialogue_turns = data.dialogue_turns.slice(-5000)
-        saveData(data)
+        await saveData(data)
     },
 
-    getRecentTurns(userId: string, role: string, limit: number) {
-        const data = loadData()
-        const rows = data.dialogue_turns
-            .filter(t => t.user_id === userId && t.role === role)
-            .sort((a, b) => b.turn_index - a.turn_index)
-            .slice(0, limit)
+    async getRecentTurns(userId: string, role: string, limit: number) {
+        const data = await loadData()
+        const rows = orderTurns(filterTurns(data, userId, role)).reverse().slice(0, limit)
         return rows.map(r => ({ user: r.user, assistant: r.assistant, created_at: r.created_at }))
     },
 
-    getAllTurns(userId: string, role: string) {
-        const data = loadData()
-        const rows = data.dialogue_turns
-            .filter(t => t.user_id === userId && t.role === role)
-            .sort((a, b) => a.turn_index - b.turn_index)
-        return rows.map(r => ({ user: r.user, assistant: r.assistant, created_at: r.created_at }))
+    async getDialoguePage(userId: string, role: string, page = 1, pageSize = 50) {
+        const data = await loadData()
+        const rows = orderTurns(filterTurns(data, userId, role))
+        const normalizedPage = normalizePage(page)
+        const normalizedPageSize = normalizePageSize(pageSize)
+        const offset = (normalizedPage - 1) * normalizedPageSize
+        return rows.slice(offset, offset + normalizedPageSize).map(r => ({ user: r.user, assistant: r.assistant, created_at: r.created_at }))
     },
 
-    deleteDialogue(userId: string, role?: string) {
-        const data = loadData()
+    async getAllTurns(userId: string, role: string, limit?: number) {
+        const data = await loadData()
+        const rows = orderTurns(filterTurns(data, userId, role))
+        const sliced = typeof limit === 'number' ? rows.slice(-limit) : rows
+        return sliced.map(r => ({ user: r.user, assistant: r.assistant, created_at: r.created_at }))
+    },
+
+    async getDialogueCount(userId: string, role?: string) {
+        const data = await loadData()
+        return data.dialogue_turns.filter(t => t.user_id === userId && (role ? t.role === role : true)).length
+    },
+
+    async deleteDialogue(userId: string, role?: string) {
+        const data = await loadData()
         const before = data.dialogue_turns.length
         if (role) {
             data.dialogue_turns = data.dialogue_turns.filter(t => !(t.user_id === userId && t.role === role))
         } else {
             data.dialogue_turns = data.dialogue_turns.filter(t => t.user_id !== userId)
         }
-        saveData(data)
+        await saveData(data)
         return data.dialogue_turns.length < before
     }
 }

@@ -1,5 +1,21 @@
 import { z } from 'zod'
 
+const parsePositiveNumber = z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() !== '') {
+        const num = Number(value)
+        return Number.isNaN(num) ? undefined : num
+    }
+    return value
+}, z.number().int().positive())
+
+const parseBoundedNumber = z.preprocess((value) => {
+    if (typeof value === 'string' && value.trim() !== '') {
+        const num = Number(value)
+        return Number.isNaN(num) ? undefined : num
+    }
+    return value
+}, z.number().int().positive().max(200))
+
 export const chatRequestSchema = z.object({
     role: z.string().min(1, 'role is required'),
     input: z.string().min(1, 'input is required').max(2000, 'input is too long'),
@@ -10,13 +26,9 @@ export const chatRequestSchema = z.object({
 export const historyGetSchema = z.object({
     role: z.string().min(1, 'role is required'),
     userId: z.string().optional().default('anon'),
-    limit: z.preprocess((value) => {
-        if (typeof value === 'string' && value.trim() !== '') {
-            const num = Number(value)
-            return Number.isNaN(num) ? undefined : num
-        }
-        return value
-    }, z.number().int().min(1).max(100).optional().default(50))
+    page: parsePositiveNumber.optional().default(1),
+    pageSize: parsePositiveNumber.optional().default(50),
+    limit: parseBoundedNumber.optional()
 })
 
 export const historyDeleteSchema = z.object({

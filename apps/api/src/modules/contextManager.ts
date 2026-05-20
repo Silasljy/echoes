@@ -1,4 +1,4 @@
-import DB, { StoredTurn } from '../db'
+import DB from '../db'
 import Retrieval from './retrieval'
 
 type Turn = { user: string; assistant: string }
@@ -16,28 +16,39 @@ export default {
 
     async buildMemoryPack(userId: string, role: string, query?: string): Promise<MemoryPack> {
         const uid = userId || 'anon'
-        const allTurns = DB.getAllTurns(uid, role)
-        const summary = this._summarize(allTurns)
-        const recent = query ? Retrieval.rankHistoryTurns(allTurns, query, 6) : DB.getRecentTurns(uid, role, 6).map(t => ({ user: t.user, assistant: t.assistant }))
+        const recentTurns = await DB.getRecentTurns(uid, role, 50)
+        const summary = this._summarize(recentTurns)
+        const recent = query ? Retrieval.rankHistoryTurns(recentTurns, query, 6) : recentTurns.slice(0, 6)
         return {
             summary,
             recent
         }
     },
 
-    getDialogue(userId: string, role: string, limit?: number) {
+    async getDialogue(userId: string, role: string, limit?: number) {
         const uid = userId || 'anon'
-        const turns = DB.getAllTurns(uid, role).map(t => ({ user: t.user, assistant: t.assistant }))
-        if (typeof limit === 'number') return turns.slice(-limit)
-        return turns
+        if (typeof limit === 'number') {
+            return DB.getDialoguePage(uid, role, 1, limit)
+        }
+        return DB.getDialoguePage(uid, role, 1, 200)
     },
 
-    deleteDialogue(userId: string, role?: string) {
+    async getDialoguePage(userId: string, role: string, page = 1, pageSize = 50) {
+        const uid = userId || 'anon'
+        return DB.getDialoguePage(uid, role, page, pageSize)
+    },
+
+    async getDialogueCount(userId: string, role?: string) {
+        const uid = userId || 'anon'
+        return DB.getDialogueCount(uid, role)
+    },
+
+    async deleteDialogue(userId: string, role?: string) {
         const uid = userId || 'anon'
         return DB.deleteDialogue(uid, role)
     },
 
-    _summarize(turns: Array<StoredTurn>) {
+    _summarize(turns: Array<Turn>) {
         if (turns.length === 0) return ''
         const topics = new Set<string>()
         turns.slice(-20).forEach(t => {
