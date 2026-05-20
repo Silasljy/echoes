@@ -1,41 +1,53 @@
 import { Router } from 'express'
 import ContextManager from '../modules/contextManager'
+import { historyGetSchema, historyDeleteSchema } from '../validators'
+import { ApiError } from '../errors'
 
 const router = Router()
 
-// GET /history?role=孔子&userId=123&limit=50
-router.get('/', (req, res) => {
+// GET /history?role=孔子&userId=123&page=1&pageSize=50
+router.get('/', async (req, res, next) => {
     try {
-        const role = String(req.query.role || '')
-        const userId = String(req.query.userId || 'anon')
-        const limitQ = req.query.limit ? parseInt(String(req.query.limit), 10) : 50
-        const limit = Number.isNaN(limitQ) ? 50 : Math.min(50, Math.max(1, limitQ))
+        const parseResult = historyGetSchema.safeParse(req.query)
+        if (!parseResult.success) {
+            const message = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ')
+            throw new ApiError(message, 400)
+        }
 
-        if (!role) return res.status(400).json({ error: 'role_required' })
+        const data = parseResult.data
+        const role = String(data.role)
+        const userId = String(data.userId || 'anon')
+        const page = Number(data.page || 1)
+        const pageSize = Number(data.pageSize || 50)
+        const effectivePageSize = typeof data.limit === 'number' ? data.limit : pageSize
+        const dialogue = await ContextManager.getDialoguePage(userId, role, page, effectivePageSize)
+        const totalCount = await ContextManager.getDialogueCount(userId, role)
 
-        const dialogue = ContextManager.getDialogue(userId, role, limit)
-        res.json({ role, userId, count: dialogue.length, dialogue })
+        res.json({ role, userId, page, pageSize: effectivePageSize, totalCount, count: dialogue.length, dialogue })
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ error: 'internal_error' })
+        next(err)
     }
 })
 
 // DELETE /history?userId=123&role=孔子
 // if role omitted, deletes all roles for the user
-router.delete('/', (req, res) => {
+router.delete('/', async (req, res, next) => {
     try {
-        const userId = String(req.query.userId || '')
-        const role = req.query.role ? String(req.query.role) : undefined
+        const parseResult = historyDeleteSchema.safeParse(req.query)
+        if (!parseResult.success) {
+            const message = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ')
+            throw new ApiError(message, 400)
+        }
 
-        if (!userId) return res.status(400).json({ error: 'userId_required' })
+        const { userId, role } = parseResult.data
+        const ok = await ContextManager.deleteDialogue(userId, role)
+        if (!ok) {
+            throw new ApiError('not_found', 404)
+        }
 
-        const ok = ContextManager.deleteDialogue(userId, role)
-        if (!ok) return res.status(404).json({ error: 'not_found' })
         res.json({ deleted: true, userId, role: role || 'all' })
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ error: 'internal_error' })
+        next(err)
     }
 })
 
