@@ -1,20 +1,27 @@
 import { Router } from 'express'
 import ContextManager from '../modules/contextManager'
+import { sessionEndSchema } from '../validators'
+import { ApiError } from '../errors'
 
 const router = Router()
 
 // POST /session/end  { userId: 'user-123' }
-router.post('/end', (req, res) => {
+router.post('/end', (req, res, next) => {
     try {
-        const userId = String(req.body?.userId || '')
-        if (!userId) return res.status(400).json({ error: 'userId_required' })
+        const parseResult = sessionEndSchema.safeParse(req.body)
+        if (!parseResult.success) {
+            const message = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ')
+            throw new ApiError(message, 400)
+        }
 
+        const { userId } = parseResult.data
         const ok = ContextManager.deleteDialogue(userId)
-        if (!ok) return res.status(404).json({ error: 'not_found' })
+        if (!ok) {
+            throw new ApiError('not_found', 404)
+        }
         res.json({ ended: true, userId })
     } catch (err) {
-        console.error(err)
-        res.status(500).json({ error: 'internal_error' })
+        next(err)
     }
 })
 
