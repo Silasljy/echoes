@@ -17,6 +17,7 @@ export default function App() {
     const [roles, setRoles] = useState<string[]>(['孔子', '孟子', '老子', '庄子', '自定义'])
     const [reply, setReply] = useState<string | null>(null)
     const [evidence, setEvidence] = useState<any>(null)
+    const [expandedEvidence, setExpandedEvidence] = useState<number[]>([])
     const [userId, setUserId] = useState<string | null>(null)
     const [showHistory, setShowHistory] = useState(false)
     const [history, setHistory] = useState<LocalTurn[]>([])
@@ -77,6 +78,7 @@ export default function App() {
         const data = await res.json()
         setReply(data.reply)
         setEvidence(data.evidence)
+        setExpandedEvidence([])
 
         // save locally
         const turn: LocalTurn = { user: input, assistant: data.reply || '', ts: Date.now() }
@@ -235,9 +237,28 @@ export default function App() {
                         <h3>参考（AI 生成，未经证实）</h3>
                         <div className="evidence-list">
                             {evidence.map((ev: any, idx: number) => (
-                                <div key={idx} className="evidence-item">
-                                    <pre>{ev.text || JSON.stringify(ev)}</pre>
-                                </div>
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    className={`evidence-item ${expandedEvidence.includes(idx) ? 'expanded' : ''}`}
+                                    onClick={() => {
+                                        setExpandedEvidence(prev => (
+                                            prev.includes(idx)
+                                                ? prev.filter(item => item !== idx)
+                                                : [...prev, idx]
+                                        ))
+                                    }}
+                                >
+                                    <div className="evidence-item-header">
+                                        <span>参考 {idx + 1}</span>
+                                        <span className="evidence-item-toggle">
+                                            {expandedEvidence.includes(idx) ? '收起' : '展开'}
+                                        </span>
+                                    </div>
+                                    <div className="evidence-item-body">
+                                        <div className="evidence-text">{ev.text || JSON.stringify(ev)}</div>
+                                    </div>
+                                </button>
                             ))}
                         </div>
                     </>

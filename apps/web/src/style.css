@@ -187,12 +187,56 @@ textarea {
     gap: var(--space-2);
 }
 
-.evidence-item pre {
+.evidence-item {
     background: var(--color-neutral-200);
     padding: var(--space-2);
     border-radius: var(--radius-1);
+    border: 1px solid transparent;
     margin: 0;
+    appearance: none;
     color: var(--text-primary);
+    font: inherit;
+    font-family: ui-serif, Georgia, 'Times New Roman', Times, serif;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    display: block;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.evidence-item:hover {
+    border-color: var(--color-neutral-400);
+}
+
+.evidence-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.evidence-item-toggle {
+    flex-shrink: 0;
+}
+
+.evidence-item-body {
+    overflow: hidden;
+    max-height: 4.8em;
+    transition: max-height 0.25s ease;
+}
+
+.evidence-item.expanded .evidence-item-body {
+    max-height: 1200px;
+}
+
+.evidence-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.6;
     font-family: ui-serif, Georgia, 'Times New Roman', Times, serif;
 }
 
