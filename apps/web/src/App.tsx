@@ -20,10 +20,19 @@ export default function App() {
     const [evidence, setEvidence] = useState<any>(null)
     const [expandedEvidence, setExpandedEvidence] = useState<number[]>([])
     const [userId, setUserId] = useState<string | null>(null)
-    const [page, setPage] = useState<'chat' | 'history'>('chat')
+    const [page, setPage] = useState<'chat' | 'history' | 'debate'>('chat')
     const [historyStore, setHistoryStore] = useState<HistoryStore>({})
     const [selectedHistoryRole, setSelectedHistoryRole] = useState('')
     const [exportFormat, setExportFormat] = useState<'markdown' | 'txt'>('markdown')
+    // debate states
+    const [debateTopic, setDebateTopic] = useState('孔子与仁的本质应如何理解？')
+    const [debateParticipants, setDebateParticipants] = useState<string[]>(['孔子', '孟子'])
+    const [debatesList, setDebatesList] = useState<DebateRecord[]>([])
+    const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null)
+    const [customNames, setCustomNames] = useState<string[]>(['', '', ''])
+    const [isDebating, setIsDebating] = useState(false)
+    const [liveDebate, setLiveDebate] = useState<DebateRecord | null>(null)
+    const debateStageRef = React.useRef<HTMLDivElement | null>(null)
 
     function getOrCreateLocalUserId() {
         const key = 'echoes.userId'
@@ -174,6 +183,44 @@ export default function App() {
         return lines.join('\n')
     }
 
+    // Debate storage
+    type DebateMessage = { speaker: string; text: string; ts: number }
+    type DebateRecord = { id: string; topic: string; participants: string[]; messages: DebateMessage[]; createdAt: number }
+
+    function debateStorageKey(uid: string) {
+        return `echoes.debate.${uid}`
+    }
+
+    function loadLocalDebates(uid: string): DebateRecord[] {
+        try {
+            const raw = localStorage.getItem(debateStorageKey(uid))
+            if (!raw) return []
+            return JSON.parse(raw) as DebateRecord[]
+        } catch (e) {
+            console.warn('load debates failed', e)
+            return []
+        }
+    }
+
+    function saveLocalDebate(uid: string, rec: DebateRecord) {
+        try {
+            const list = loadLocalDebates(uid)
+            list.unshift(rec)
+            while (list.length > 100) list.pop()
+            localStorage.setItem(debateStorageKey(uid), JSON.stringify(list))
+        } catch (e) {
+            console.warn('save debate failed', e)
+        }
+    }
+
+    function deleteLocalDebate(uid: string, id: string) {
+        try {
+            const list = loadLocalDebates(uid).filter(d => d.id !== id)
+            localStorage.setItem(debateStorageKey(uid), JSON.stringify(list))
+        } catch (e) { console.warn('delete debate failed', e) }
+    }
+
+
     function triggerDownload(filename: string, content: string, mimeType: string) {
         const blob = new Blob([content], { type: mimeType })
         const url = URL.createObjectURL(blob)
@@ -185,6 +232,107 @@ export default function App() {
         link.remove()
         URL.revokeObjectURL(url)
     }
+
+    async function runDebate(uid: string, topic: string, participants: string[]) {
+        // orchestrate 3 rounds, each participant speaks in turn
+        if (!participants || participants.length === 0) return null
+        setIsDebating(true)
+        const messages: DebateMessage[] = []
+        const liveId = `live-${Date.now()}`
+        const liveRec: DebateRecord = { id: liveId, topic, participants: participants.slice(), messages: [], createdAt: Date.now() }
+        setLiveDebate(liveRec)
+        setSelectedDebateId(liveId)
+        let lastStatement = topic
+        try {
+            for (let round = 1; round <= 3; round++) {
+                for (let pi = 0; pi < participants.length; pi++) {
+                    const speaker = participants[pi]
+                    const roleToSend = speaker === '自定义' ? speaker : speaker
+                    const res = await fetch(`${apiBase}/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ role: roleToSend, input: lastStatement, userId: uid, mode: 'debate' })
+                    })
+                    const data = await res.json()
+                    const text = data.reply || ''
+                    const msg: DebateMessage = { speaker, text, ts: Date.now() }
+                    messages.push(msg)
+                    // update live debate immediately
+                    setLiveDebate(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev)
+                    // scroll to bottom
+                    try { debateStageRef.current?.scrollTo({ top: debateStageRef.current.scrollHeight, behavior: 'smooth' }) } catch (_) { }
+                    lastStatement = text
+                }
+            }
+        } catch (e) {
+            console.warn('debate generation failed', e)
+        }
+        // persist final debate record
+        const rec: DebateRecord = { id: `debate-${Date.now()}`, topic, participants: participants.slice(), messages: messages.slice(), createdAt: Date.now() }
+        try { saveLocalDebate(uid, rec); } catch (e) { /* ignore */ }
+        // refresh list and select persisted record
+        refreshDebates(uid)
+        setSelectedDebateId(rec.id)
+        setLiveDebate(null)
+        setIsDebating(false)
+        return messages
+    }
+
+    function refreshDebates(uid: string) {
+        const list = loadLocalDebates(uid)
+        setDebatesList(list)
+        setSelectedDebateId(list[0]?.id || null)
+    }
+
+    function buildDebateExport(debateId: string, format: 'markdown' | 'txt') {
+        const rec = (debatesList.find(d => d.id === debateId) || (liveDebate && liveDebate.id === debateId ? liveDebate : null)) as DebateRecord | null
+        if (!rec) return ''
+        const generatedAt = new Date().toLocaleString()
+        if (format === 'txt') {
+            const lines: string[] = []
+            lines.push(`辩题：${rec.topic}`)
+            lines.push(`参与者：${rec.participants.join(' / ')}`)
+            lines.push(`创建时间：${new Date(rec.createdAt).toLocaleString()}`)
+            lines.push('')
+            rec.messages.forEach((m, i) => {
+                lines.push(`【${i + 1}】 ${m.speaker} (${new Date(m.ts).toLocaleString()}):`)
+                lines.push(m.text)
+                lines.push('')
+            })
+            return lines.join('\n')
+        }
+
+        const md: string[] = []
+        md.push(`# 辩题：${rec.topic}`)
+        md.push('')
+        md.push(`- 参与者：${rec.participants.join(' / ')}`)
+        md.push(`- 创建时间：${new Date(rec.createdAt).toLocaleString()}`)
+        md.push('')
+        rec.messages.forEach((m, i) => {
+            md.push(`## 第 ${i + 1} 条`)
+            md.push('')
+            md.push(`- 说话人：${m.speaker}`)
+            md.push(`- 时间：${new Date(m.ts).toLocaleString()}`)
+            md.push('')
+            md.push('```text')
+            md.push(m.text)
+            md.push('```')
+            md.push('')
+        })
+        return md.join('\n')
+    }
+
+    function exportSelectedDebate() {
+        if (!userId || !selectedDebateId) return
+        const content = buildDebateExport(selectedDebateId, exportFormat)
+        if (!content) return
+        const safe = (selectedDebateId || '').replace(/[^a-zA-Z0-9_-]/g, '_')
+        const ext = exportFormat === 'markdown' ? 'md' : 'txt'
+        const filename = `echoes-debate-${safe}-${new Date().toISOString().slice(0, 10)}.${ext}`
+        const mime = exportFormat === 'markdown' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
+        triggerDownload(filename, content, mime)
+    }
+
 
     function exportSelectedHistory() {
         if (!userId || !selectedHistoryRole) return
@@ -310,13 +458,21 @@ export default function App() {
                         <div className="container">
                             <div className="topbar">
                                 <h1>Echoes — 历史人物对话</h1>
-                                <button className="btn secondary" onClick={() => {
-                                    const uid = userId || getOrCreateLocalUserId()
-                                    const roleToShow = role === '自定义' ? (customRole || '未知人物') : role
-                                    setUserId(uid)
-                                    refreshHistory(uid, roleToShow)
-                                    setPage('history')
-                                }}>查看历史</button>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn secondary" onClick={() => {
+                                        const uid = userId || getOrCreateLocalUserId()
+                                        const roleToShow = role === '自定义' ? (customRole || '未知人物') : role
+                                        setUserId(uid)
+                                        refreshHistory(uid, roleToShow)
+                                        setPage('history')
+                                    }}>查看历史</button>
+                                    <button className="btn secondary" onClick={() => {
+                                        const uid = userId || getOrCreateLocalUserId()
+                                        setUserId(uid)
+                                        refreshDebates(uid)
+                                        setPage('debate')
+                                    }}>人物辩论</button>
+                                </div>
                             </div>
 
                             <div className="controls">
@@ -489,6 +645,125 @@ export default function App() {
                                         )
                                     })
                                 )}
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            )}
+
+            {page === 'debate' && (
+                <div className="history-page">
+                    <div className="history-page-header">
+                        <div>
+                            <h1>人物辩论</h1>
+                            <div className="muted">选择或输入最多 3 人，系统生成 3 轮辩论并可本地保存</div>
+                        </div>
+                        <div className="history-page-actions">
+                            <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
+                        </div>
+                    </div>
+
+                    <div className="history-page-layout">
+                        <aside className="history-sidebar-panel">
+                            <div className="history-sidebar-title">本地辩论记录</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {debatesList.length === 0 ? (
+                                    <p className="muted">（暂无本地辩论）</p>
+                                ) : (
+                                    debatesList.map(d => (
+                                        <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <button className={`history-role ${selectedDebateId === d.id ? 'active' : ''}`} onClick={() => setSelectedDebateId(d.id)}>{d.topic}</button>
+                                            <button className="history-item-delete" onClick={() => { deleteLocalDebate(userId || getOrCreateLocalUserId(), d.id); refreshDebates(userId || getOrCreateLocalUserId()) }}>删除</button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </aside>
+
+                        <section className="history-detail-panel">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div>
+                                    <label>辩题</label>
+                                    <input value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label>人物（最多 3 个）</label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {[0, 1, 2].map(i => (
+                                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <select value={debateParticipants[i] || ''} onChange={e => {
+                                                    const v = e.target.value
+                                                    const next = debateParticipants.slice()
+                                                    // ensure length
+                                                    while (next.length < 3) next.push('')
+                                                    next[i] = v
+                                                    // keep placeholders for empty slots, then trim trailing empties when saving
+                                                    setDebateParticipants(next)
+                                                }}>
+                                                    <option value="">（空）</option>
+                                                    {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                                                    <option value="自定义">自定义</option>
+                                                </select>
+                                                {debateParticipants[i] === '自定义' && (
+                                                    <input placeholder="输入自定义人物名" value={customNames[i] || ''} onChange={e => {
+                                                        const v = e.target.value
+                                                        const cn = customNames.slice()
+                                                        while (cn.length < 3) cn.push('')
+                                                        cn[i] = v
+                                                        setCustomNames(cn)
+                                                    }} />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn primary" onClick={async () => {
+                                        const uid = userId || getOrCreateLocalUserId()
+                                        setUserId(uid)
+                                        // build final participants list, replacing '自定义' with entered names
+                                        const participantsToUse = debateParticipants.map((v, i) => {
+                                            if (!v) return ''
+                                            if (v === '自定义') return (customNames[i] || '').trim()
+                                            return v
+                                        }).filter(s => s && s.length > 0)
+                                        if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
+                                        setReply(null)
+                                        await runDebate(uid, debateTopic, participantsToUse)
+                                    }} disabled={isDebating}>{isDebating ? '进行中…' : '开始辩论'}</button>
+                                    <button className="btn secondary" onClick={() => { const uid = userId || getOrCreateLocalUserId(); refreshDebates(uid) }}>刷新记录</button>
+                                    <button className="btn secondary" onClick={exportSelectedDebate} disabled={!selectedDebateId}>导出当前辩论</button>
+                                </div>
+
+                                <div style={{ marginTop: 12 }}>
+                                    <h3>辩论结果</h3>
+                                    <div className="debate-stage" ref={debateStageRef}>
+                                        {selectedDebateId ? (
+                                            (() => {
+                                                // if there's a live debate matching the selected id, show it
+                                                if (liveDebate && liveDebate.id === selectedDebateId) {
+                                                    return liveDebate.messages.map((m, idx) => (
+                                                        <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                                            <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
+                                                            <div className="debate-text">{m.text}</div>
+                                                        </div>
+                                                    ))
+                                                }
+                                                const rec = debatesList.find(d => d.id === selectedDebateId)
+                                                if (!rec) return <p className="muted">（记录已删除）</p>
+                                                return rec.messages.map((m, idx) => (
+                                                    <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                                        <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
+                                                        <div className="debate-text">{m.text}</div>
+                                                    </div>
+                                                ))
+                                            })()
+                                        ) : (
+                                            <p className="muted">（请选择左侧记录或开始新的辩论）</p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </section>
                     </div>

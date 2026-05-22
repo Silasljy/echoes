@@ -21,21 +21,36 @@ router.post('/', async (req, res, next) => {
         const { role, input, mode, userId } = parseResult.data
         const uid = userId || 'anon'
         const constitution = ConstitutionService.getConstitution(role)
-        const memoryPack = await ContextManager.buildMemoryPack(uid, role, input)
-
-        // simple heuristic to decide when to inject local knowledge for context
-        const localEvidence = KnowledgeService.search(role, input, 3)
-
         let reply: string
-        if (process.env.DEEPSEEK_API_KEY) {
-            try {
-                reply = await LLMProvider.generateReply({ constitution, memoryPack, input, evidence: localEvidence, requireCitation: false })
-            } catch (e) {
-                console.error('DeepSeek call failed, falling back to mock:', e)
-                reply = await LLM.generateReply({ constitution, memoryPack, input, evidence: localEvidence, requireCitation: false })
+
+        if (mode === 'debate') {
+            // For debate mode, use a specialized, lightweight prompt to speed up generation
+            if (process.env.DEEPSEEK_API_KEY) {
+                try {
+                    reply = await LLMProvider.generateDebateReply({ constitution, input })
+                } catch (e) {
+                    console.error('DeepSeek debate call failed, falling back to mock:', e)
+                    reply = await LLM.generateReply({ constitution, memoryPack: { summary: '', recent: [] }, input, evidence: [], requireCitation: false })
+                }
+            } else {
+                reply = await LLM.generateReply({ constitution, memoryPack: { summary: '', recent: [] }, input, evidence: [], requireCitation: false })
             }
         } else {
-            reply = await LLM.generateReply({ constitution, memoryPack, input, evidence: localEvidence, requireCitation: false })
+            const memoryPack = await ContextManager.buildMemoryPack(uid, role, input)
+
+            // simple heuristic to decide when to inject local knowledge for context
+            const localEvidence = KnowledgeService.search(role, input, 3)
+
+            if (process.env.DEEPSEEK_API_KEY) {
+                try {
+                    reply = await LLMProvider.generateReply({ constitution, memoryPack, input, evidence: localEvidence, requireCitation: false })
+                } catch (e) {
+                    console.error('DeepSeek call failed, falling back to mock:', e)
+                    reply = await LLM.generateReply({ constitution, memoryPack, input, evidence: localEvidence, requireCitation: false })
+                }
+            } else {
+                reply = await LLM.generateReply({ constitution, memoryPack, input, evidence: localEvidence, requireCitation: false })
+            }
         }
 
         let aiEvidence = [] as Array<{ id: string; text: string }>

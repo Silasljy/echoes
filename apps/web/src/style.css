@@ -585,6 +585,45 @@ textarea {
     box-shadow: var(--shadow-1);
 }
 
+/* Debate page bubbles */
+.debate-stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-height: 60vh;
+    overflow: auto;
+    padding: var(--space-2);
+}
+
+.debate-bubble {
+    max-width: 78%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: var(--shadow-1);
+}
+
+.debate-bubble.left {
+    align-self: flex-start;
+}
+
+.debate-bubble.right {
+    align-self: flex-end;
+    background: linear-gradient(180deg, #f1f5f9 0%, #eef2ff 100%);
+}
+
+.debate-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.debate-text {
+    white-space: pre-wrap;
+    line-height: 1.7;
+}
+
 .muted {
     color: var(--text-secondary);
 }

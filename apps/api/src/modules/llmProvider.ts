@@ -121,6 +121,44 @@ export default {
     }
 
     ,
+    async generateDebateReply({ constitution, input }:
+        { constitution: Constitution; input: string }) {
+        const API_KEY = process.env.DEEPSEEK_API_KEY
+        const API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1'
+        if (!API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
+
+        // Debate-focused system prompt: concise, argue, respect era and persona
+        const systemPrompt = `你正在参加一场结构化辩论，扮演的角色为：${constitution.name || '该角色'}。请严格遵守下列要求：\n
+1) 以该角色的历史背景、知识与性格发言，避免使用角色在其去世后才出现的知识；\n
+2) 回答要简洁，优先给出明确立场（支持/反对/中立）并列出最多 2 条有力论点或简短反驳；\n
+3) 禁止输出内部推理或链式思考；不需引用外部资料；不要生成证据 ID；\n
+4) 每次回答控制在较短的篇幅内（尽量不超过 120 个词或约 800 个 token），语言力求直接有力。\n
+请以该角色身份直接回应问题或对前一发言进行反驳。`;
+
+        try {
+            const resp = await axios.post(
+                `${API_URL}/chat/completions`,
+                {
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: input }
+                    ],
+                    temperature: 0.35,
+                    max_tokens: 180
+                },
+                { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` } }
+            )
+
+            let message = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
+            return message
+        } catch (err: any) {
+            console.error('DeepSeek debate call failed:', err.response?.data || err.message)
+            throw err
+        }
+    }
+
+    ,
     async generateEvidence({ constitution, query, limit = 3 }:
         { constitution: Constitution; query: string; limit?: number }) {
         const API_KEY = process.env.DEEPSEEK_API_KEY
