@@ -479,7 +479,6 @@ export default function App() {
                                         refreshDebates(uid)
                                         setPage('debate')
                                     }}>人物辩论</button>
-                                    <button className="btn secondary" onClick={openDebateHistory}>辩论历史</button>
                                 </div>
                             </div>
 
@@ -577,7 +576,6 @@ export default function App() {
                         </div>
                         <div className="history-page-actions">
                             <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
-                            <button className="btn secondary" onClick={() => setPage('debate')}>去人物辩论</button>
                         </div>
                     </div>
 
@@ -765,7 +763,6 @@ export default function App() {
                         </div>
                         <div className="history-page-actions">
                             <button className="btn secondary" onClick={() => setPage('debate')}>返回人物辩论</button>
-                            <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
                         </div>
                     </div>
 
