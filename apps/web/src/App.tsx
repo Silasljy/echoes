@@ -26,13 +26,15 @@ export default function App() {
     const [exportFormat, setExportFormat] = useState<'markdown' | 'txt'>('markdown')
     // debate states
     const [debateTopic, setDebateTopic] = useState('孔子与仁的本质应如何理解？')
-    const [debateParticipants, setDebateParticipants] = useState<string[]>(['孔子', '孟子'])
+    const [debateParticipants, setDebateParticipants] = useState<string[]>(['', '', ''])
     const [debatesList, setDebatesList] = useState<DebateRecord[]>([])
     const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null)
-    const [customNames, setCustomNames] = useState<string[]>(['', '', ''])
+    const [debateActiveSlot, setDebateActiveSlot] = useState(0)
     const [isDebating, setIsDebating] = useState(false)
     const [liveDebate, setLiveDebate] = useState<DebateRecord | null>(null)
     const debateStageRef = React.useRef<HTMLDivElement | null>(null)
+
+    const debateFixedRoles = roles.filter(name => name !== '自定义')
 
     function getOrCreateLocalUserId() {
         const key = 'echoes.userId'
@@ -672,50 +674,62 @@ export default function App() {
                     </div>
 
                     <div className="history-detail-panel">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            <div className="debate-topic-block">
                                 <label>辩题</label>
-                                <input value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
+                                <input className="debate-topic-input" value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
                             </div>
                             <div>
                                 <label>人物（最多 3 个）</label>
                                 <div style={{ display: 'flex', gap: 8 }}>
                                     {[0, 1, 2].map(i => (
-                                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                            <select value={debateParticipants[i] || ''} onChange={e => {
-                                                const v = e.target.value
-                                                const next = debateParticipants.slice()
-                                                while (next.length < 3) next.push('')
-                                                next[i] = v
-                                                setDebateParticipants(next)
-                                            }}>
-                                                <option value="">（空）</option>
-                                                {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                                                <option value="自定义">自定义</option>
-                                            </select>
-                                            {debateParticipants[i] === '自定义' && (
-                                                <input placeholder="输入自定义人物名" value={customNames[i] || ''} onChange={e => {
-                                                    const v = e.target.value
-                                                    const cn = customNames.slice()
-                                                    while (cn.length < 3) cn.push('')
-                                                    cn[i] = v
-                                                    setCustomNames(cn)
-                                                }} />
-                                            )}
+                                        <div key={i} className="debate-slot-card">
+                                            <button
+                                                type="button"
+                                                className={`debate-slot-tab ${debateActiveSlot === i ? 'active' : ''}`}
+                                                onClick={() => setDebateActiveSlot(i)}
+                                            >
+                                                第 {i + 1} 位
+                                                <span className="debate-slot-tab-value">{debateParticipants[i] || '（空）'}</span>
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn primary" onClick={async () => {
+                            <div className="debate-editor-row">
+                                <div className="debate-editor-label">正在编辑第 {debateActiveSlot + 1} 位</div>
+                                <input
+                                    className="debate-custom-input"
+                                    placeholder={`直接输入第 ${debateActiveSlot + 1} 位人物名`}
+                                    value={debateParticipants[debateActiveSlot] || ''}
+                                    onChange={e => {
+                                        const next = debateParticipants.slice()
+                                        while (next.length < 3) next.push('')
+                                        next[debateActiveSlot] = e.target.value
+                                        setDebateParticipants(next)
+                                    }}
+                                />
+                                <select
+                                    className="debate-quick-select"
+                                    value={debateParticipants[debateActiveSlot] || ''}
+                                    onChange={e => {
+                                        const v = e.target.value
+                                        const next = debateParticipants.slice()
+                                        while (next.length < 3) next.push('')
+                                        next[debateActiveSlot] = v
+                                        setDebateParticipants(next)
+                                    }}
+                                >
+                                    <option value="">（空）</option>
+                                    {debateFixedRoles.map(name => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
+                                </select>
+                                <button className="btn primary" style={{ marginLeft: 0 }} onClick={async () => {
                                     const uid = userId || getOrCreateLocalUserId()
                                     setUserId(uid)
-                                    const participantsToUse = debateParticipants.map((v, i) => {
-                                        if (!v) return ''
-                                        if (v === '自定义') return (customNames[i] || '').trim()
-                                        return v
-                                    }).filter(s => s && s.length > 0)
+                                    const participantsToUse = debateParticipants.map(v => (v || '').trim()).filter(s => s.length > 0)
                                     if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
                                     setReply(null)
                                     await runDebate(uid, debateTopic, participantsToUse)
