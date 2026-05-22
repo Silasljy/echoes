@@ -1,18 +1,19 @@
 :root {
-    --color-primary: #1d4ed8;
-    --color-primary-strong: #1e40af;
-    --color-secondary: #475569;
-    --color-neutral-100: #f8fafc;
-    --color-neutral-200: #f1f5f9;
-    --color-neutral-300: #e2e8f0;
-    --color-neutral-400: #cbd5e1;
-    --color-neutral-500: #94a3b8;
-    --color-success: #15803d;
-    --color-warning: #b45309;
-    --color-error: #dc2626;
-    --text-primary: #1f2937;
-    --text-secondary: #64748b;
-    --text-tertiary: #94a3b8;
+    --color-primary: #8a6d3b;
+    --color-primary-strong: #6b4423;
+    --color-secondary: #6b4423;
+    --color-accent: #d2b48c;
+    --color-neutral-100: #faf6f0;
+    --color-neutral-200: #f0ebe1;
+    --color-neutral-300: #d9c8b4;
+    --color-neutral-400: #c2b49e;
+    --color-neutral-500: #a69682;
+    --color-success: #7a8b54;
+    --color-warning: #b88a3b;
+    --color-error: #b04b39;
+    --text-primary: #3d3528;
+    --text-secondary: #7d6f5c;
+    --text-tertiary: #a89a85;
 
     --text-xs: 12px;
     --text-sm: 14px;
@@ -31,11 +32,13 @@
     --space-16: 64px;
 
     --radius-1: 6px;
-    --radius-2: 8px;
+    --radius-2: 16px;
 
-    --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06);
-    --shadow-2: 0 8px 24px rgba(15, 23, 42, 0.08);
-    --shadow-3: 0 16px 40px rgba(15, 23, 42, 0.08);
+    --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.07);
+    --shadow-2: 0 4px 16px rgba(138, 109, 59, 0.12);
+    --shadow-3: 0 16px 40px rgba(138, 109, 59, 0.14);
+
+    --decor-img: url("data:image/svg+xml,%3Csvg width='54' height='60' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath opacity='.14' d='M48.5 1.006c-3.82 0-7.555 1.66-10.803 4.954C30.47 8.86 28.33 12.45 27.787 16.424c-.542 3.974-2.684 7.563-6.053 10.44s-7.471 4.532-11.72 4.532H1.5A1.5 1.5 0 000 32.926v21.543A5.53 5.53 0 005.53 60h43.436A5.532 5.532 0 0054.5 54.469V6.536A5.532 5.532 0 0048.5 1.006z' fill='%238a6d3b'/%3E%3C/svg%3E");
 }
 
 * {
@@ -54,14 +57,14 @@ html {
 
 body {
     margin: 0;
-    font-family: 'Songti SC', STSong, SimSun, 'Noto Serif CJK SC', 'Source Han Serif SC', serif;
-    background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    font-family: 'Noto Serif SC', 'Songti SC', STSong, SimSun, serif;
+    background: var(--color-neutral-100);
     color: var(--text-primary);
     font-size: var(--text-base);
-    font-weight: 700;
-    line-height: 1.5;
+    line-height: 1.7;
     padding: var(--space-6);
     overflow-x: hidden;
+    background-image: linear-gradient(135deg, #f8f3e3 0%, #fddfb1 100%);
 }
 
 button,
@@ -112,18 +115,44 @@ textarea {
     margin: 0;
     font-size: clamp(24px, 3.2vw, var(--text-2xl));
     font-weight: 700;
-    letter-spacing: 0;
+    letter-spacing: 3px;
     line-height: 1.15;
+    color: var(--color-primary);
 }
 
 .container {
     max-width: none;
-    margin: 0 auto;
-    background: #ffffff;
-    padding: var(--space-6);
-    border-radius: 16px;
-    border: 1px solid rgba(226, 232, 240, 0.95);
-    box-shadow: var(--shadow-3);
+    margin: 40px auto 0;
+    background: #ffffffcc;
+    padding: var(--space-8);
+    border-radius: var(--radius-2);
+    border: 1px solid var(--color-neutral-300);
+    box-shadow: var(--shadow-2);
+    position: relative;
+    overflow: visible;
+}
+
+.container::before,
+.container::after {
+    content: "";
+    position: absolute;
+    width: 54px;
+    height: 60px;
+    background-image: var(--decor-img);
+    background-repeat: no-repeat;
+    opacity: .29;
+    z-index: 0;
+}
+
+.container::before {
+    left: -28px;
+    top: -26px;
+}
+
+.container::after {
+    right: -28px;
+    bottom: -32px;
+    transform: scaleX(-1) scaleY(-1);
 }
 
 .chat-page .container {
@@ -152,7 +181,8 @@ textarea {
     margin: 0;
     font-size: clamp(24px, 3.2vw, var(--text-2xl));
     font-weight: 700;
-    letter-spacing: 0;
+    letter-spacing: 3px;
+    color: var(--color-primary);
 }
 
 .history-page-layout {
@@ -164,11 +194,11 @@ textarea {
 
 .history-sidebar-panel,
 .history-detail-panel {
-    background: #ffffff;
-    border: 1px solid rgba(226, 232, 240, 0.95);
-    border-radius: 16px;
+    background: #ffffffcc;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-2);
     padding: var(--space-4);
-    box-shadow: var(--shadow-1);
+    box-shadow: var(--shadow-2);
 }
 
 .history-sidebar-panel {
@@ -209,35 +239,39 @@ textarea {
 }
 
 label {
-    font-weight: 700;
+    font-weight: 500;
     font-size: var(--text-sm);
     color: var(--text-secondary);
+    letter-spacing: 1px;
 }
 
 select,
 input,
 textarea {
+    font-family: inherit;
     font-size: var(--text-base);
-    padding: 10px 12px;
-    border: 1px solid rgba(203, 213, 225, 0.95);
-    border-radius: 10px;
-    background: #ffffff;
+    padding: 11px 16px;
+    border: 1.5px solid var(--color-neutral-400);
+    border-radius: var(--radius-1);
+    background: #fffefc;
     color: var(--text-primary);
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    transition: border-color .16s, box-shadow .14s;
 }
 
 select:focus,
 input:focus,
 textarea:focus {
     outline: none;
-    border-color: rgba(29, 78, 216, 0.62);
-    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px #e7d8b9a9;
 }
 
 textarea {
     min-height: 84px;
-    resize: vertical;
+    max-height: 320px;
+    resize: none;
+    overflow: hidden;
 }
 
 .custom-role {
@@ -245,13 +279,17 @@ textarea {
 }
 
 .btn {
-    padding: 10px 14px;
-    border-radius: 10px;
+    padding: 11px 22px;
+    border-radius: 22px;
     cursor: pointer;
-    font-weight: 700;
-    border: 1px solid transparent;
-    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-    box-shadow: none;
+    font-weight: 500;
+    border: 1.2px solid transparent;
+    letter-spacing: 1.5px;
+    font-size: var(--text-base);
+    margin-left: 8px;
+    transition: background .15s, box-shadow .1s, color .13s, border-color .13s, transform .09s;
+    box-shadow: 0 2px 8px #e6dbc2a0;
+    will-change: transform, background;
 }
 
 .btn:hover {
@@ -259,24 +297,28 @@ textarea {
 }
 
 .primary {
-    background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-    color: white;
+    background: linear-gradient(90deg, #b98c4c 60%, #96723b 100%);
+    color: #fffefc;
     border-color: var(--color-primary);
 }
 
 .primary:hover {
-    background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
-    border-color: var(--color-primary-strong);
+    background: linear-gradient(90deg, #9f743e 60%, #7a5f32 100%);
+    color: #fff;
 }
 
 .secondary {
-    background: #ffffff;
-    color: var(--color-primary);
-    border: 1px solid rgba(203, 213, 225, 0.95);
+    background: #fcf6ed;
+    color: var(--color-secondary);
+    border: 1.3px solid var(--color-neutral-300);
+    margin-left: 0;
+    margin-right: 8px;
 }
 
 .secondary:hover {
-    background: #f8fafc;
+    background: var(--color-neutral-200);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
 }
 
 .secondary:disabled,
@@ -287,11 +329,11 @@ textarea {
 
 .danger {
     color: var(--color-error);
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(176, 75, 57, 0.2);
 }
 
 .danger:hover {
-    background: rgba(239, 68, 68, 0.08);
+    background: #fef2f2;
 }
 
 .output {
@@ -311,11 +353,11 @@ textarea {
 }
 
 .reply {
-    background: #ffffff;
+    background: #fffefc;
     padding: var(--space-4);
-    border-radius: 16px;
-    border: 1px solid rgba(226, 232, 240, 0.95);
-    box-shadow: var(--shadow-1);
+    border-radius: var(--radius-2);
+    border: 1px solid var(--color-neutral-300);
+    box-shadow: 0 1px 8px #ede8d1a3;
     max-height: 420px;
     overflow: auto;
 }
@@ -392,13 +434,13 @@ textarea {
 .history-panel {
     margin-top: var(--space-3);
     padding: var(--space-3);
-    border: 1px solid rgba(226, 232, 240, 0.95);
-    border-radius: 16px;
-    background: #ffffff;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-2);
+    background: #fffefc;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-3);
-    box-shadow: var(--shadow-1);
+    box-shadow: 0 1px 8px #ede8d1a3;
 }
 
 .history-rail {
@@ -452,7 +494,7 @@ textarea {
 
 .history-role {
     appearance: none;
-    border: 1px solid rgba(226, 232, 240, 0.95);
+    border: 1px solid var(--color-neutral-300);
     background: #ffffff;
     border-radius: 12px;
     padding: 8px 10px;
@@ -475,8 +517,8 @@ textarea {
 }
 
 .history-role.active {
-    border-color: rgba(29, 78, 216, 0.55);
-    background: #eff6ff;
+    border-color: var(--color-primary);
+    background: #f6eddc;
 }
 
 .history-role-name {
@@ -555,9 +597,9 @@ textarea {
 .history-item {
     padding: var(--space-2) var(--space-3);
     border-radius: 14px;
-    background: #ffffff;
+    background: #fcf6ed;
     box-shadow: var(--shadow-1);
-    border: 1px solid rgba(226, 232, 240, 0.95);
+    border: 1px solid var(--color-neutral-300);
 }
 
 .history-item-head {
@@ -569,7 +611,7 @@ textarea {
 }
 
 .history-item-delete {
-    border: 1px solid rgba(220, 38, 38, 0.18);
+    border: 1px solid rgba(176, 75, 57, 0.18);
     background: #ffffff;
     color: var(--color-error);
     border-radius: 10px;
@@ -599,9 +641,9 @@ textarea {
     max-width: 78%;
     padding: 12px 14px;
     border-radius: 14px;
-    background: #ffffff;
-    border: 1px solid rgba(226, 232, 240, 0.95);
-    box-shadow: var(--shadow-1);
+    background: linear-gradient(135deg, #faf6f0 80%, #f3e5c7 100%);
+    border: 1px solid var(--color-neutral-300);
+    box-shadow: 0 2px 20px 0 #e9d5bb5a;
 }
 
 .debate-bubble.left {
@@ -610,7 +652,7 @@ textarea {
 
 .debate-bubble.right {
     align-self: flex-end;
-    background: linear-gradient(180deg, #f1f5f9 0%, #eef2ff 100%);
+    background: linear-gradient(135deg, #fcf6e6 80%, #ecdab5 100%);
 }
 
 .debate-meta {
