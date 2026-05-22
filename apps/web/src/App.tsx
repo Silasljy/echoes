@@ -20,7 +20,7 @@ export default function App() {
     const [evidence, setEvidence] = useState<any>(null)
     const [expandedEvidence, setExpandedEvidence] = useState<number[]>([])
     const [userId, setUserId] = useState<string | null>(null)
-    const [page, setPage] = useState<'chat' | 'history' | 'debate'>('chat')
+    const [page, setPage] = useState<'chat' | 'history' | 'debate' | 'debateHistory'>('chat')
     const [historyStore, setHistoryStore] = useState<HistoryStore>({})
     const [selectedHistoryRole, setSelectedHistoryRole] = useState('')
     const [exportFormat, setExportFormat] = useState<'markdown' | 'txt'>('markdown')
@@ -333,6 +333,13 @@ export default function App() {
         triggerDownload(filename, content, mime)
     }
 
+    function openDebateHistory() {
+        const uid = userId || getOrCreateLocalUserId()
+        setUserId(uid)
+        refreshDebates(uid)
+        setPage('debateHistory')
+    }
+
 
     function exportSelectedHistory() {
         if (!userId || !selectedHistoryRole) return
@@ -472,6 +479,7 @@ export default function App() {
                                         refreshDebates(uid)
                                         setPage('debate')
                                     }}>人物辩论</button>
+                                    <button className="btn secondary" onClick={openDebateHistory}>辩论历史</button>
                                 </div>
                             </div>
 
@@ -569,6 +577,7 @@ export default function App() {
                         </div>
                         <div className="history-page-actions">
                             <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
+                            <button className="btn secondary" onClick={() => setPage('debate')}>去人物辩论</button>
                         </div>
                     </div>
 
@@ -660,110 +669,178 @@ export default function App() {
                         </div>
                         <div className="history-page-actions">
                             <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
+                            <button className="btn secondary" onClick={openDebateHistory}>查看辩论历史</button>
+                        </div>
+                    </div>
+
+                    <div className="history-detail-panel">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div>
+                                <label>辩题</label>
+                                <input value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
+                            </div>
+                            <div>
+                                <label>人物（最多 3 个）</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    {[0, 1, 2].map(i => (
+                                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                            <select value={debateParticipants[i] || ''} onChange={e => {
+                                                const v = e.target.value
+                                                const next = debateParticipants.slice()
+                                                while (next.length < 3) next.push('')
+                                                next[i] = v
+                                                setDebateParticipants(next)
+                                            }}>
+                                                <option value="">（空）</option>
+                                                {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                                                <option value="自定义">自定义</option>
+                                            </select>
+                                            {debateParticipants[i] === '自定义' && (
+                                                <input placeholder="输入自定义人物名" value={customNames[i] || ''} onChange={e => {
+                                                    const v = e.target.value
+                                                    const cn = customNames.slice()
+                                                    while (cn.length < 3) cn.push('')
+                                                    cn[i] = v
+                                                    setCustomNames(cn)
+                                                }} />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn primary" onClick={async () => {
+                                    const uid = userId || getOrCreateLocalUserId()
+                                    setUserId(uid)
+                                    const participantsToUse = debateParticipants.map((v, i) => {
+                                        if (!v) return ''
+                                        if (v === '自定义') return (customNames[i] || '').trim()
+                                        return v
+                                    }).filter(s => s && s.length > 0)
+                                    if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
+                                    setReply(null)
+                                    await runDebate(uid, debateTopic, participantsToUse)
+                                }} disabled={isDebating}>{isDebating ? '进行中…' : '开始辩论'}</button>
+                            </div>
+
+                            <div style={{ marginTop: 12 }}>
+                                <h3>实时辩论</h3>
+                                <div className="debate-stage" ref={debateStageRef}>
+                                    {selectedDebateId ? (
+                                        (() => {
+                                            if (liveDebate && liveDebate.id === selectedDebateId) {
+                                                return liveDebate.messages.map((m, idx) => (
+                                                    <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                                        <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
+                                                        <div className="debate-text">{m.text}</div>
+                                                    </div>
+                                                ))
+                                            }
+                                            const rec = debatesList.find(d => d.id === selectedDebateId)
+                                            if (!rec) return <p className="muted">（暂无结果，开始一场辩论吧）</p>
+                                            return rec.messages.map((m, idx) => (
+                                                <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                                    <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
+                                                    <div className="debate-text">{m.text}</div>
+                                                </div>
+                                            ))
+                                        })()
+                                    ) : (
+                                        <p className="muted">（开始辩论后，这里会实时显示每个气泡）</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {page === 'debateHistory' && (
+                <div className="history-page">
+                    <div className="history-page-header">
+                        <div>
+                            <h1>辩论历史</h1>
+                            <div className="muted">按辩题查看本地辩论记录，并可导出或删除</div>
+                        </div>
+                        <div className="history-page-actions">
+                            <button className="btn secondary" onClick={() => setPage('debate')}>返回人物辩论</button>
+                            <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
                         </div>
                     </div>
 
                     <div className="history-page-layout">
                         <aside className="history-sidebar-panel">
-                            <div className="history-sidebar-title">本地辩论记录</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div className="history-sidebar-title">辩论记录</div>
+                            <div className="history-sidebar-list history-role-list">
                                 {debatesList.length === 0 ? (
                                     <p className="muted">（暂无本地辩论）</p>
                                 ) : (
-                                    debatesList.map(d => (
-                                        <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <button className={`history-role ${selectedDebateId === d.id ? 'active' : ''}`} onClick={() => setSelectedDebateId(d.id)}>{d.topic}</button>
-                                            <button className="history-item-delete" onClick={() => { deleteLocalDebate(userId || getOrCreateLocalUserId(), d.id); refreshDebates(userId || getOrCreateLocalUserId()) }}>删除</button>
-                                        </div>
+                                    debatesList.map(item => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className={`history-role ${selectedDebateId === item.id ? 'active' : ''}`}
+                                            onClick={() => setSelectedDebateId(item.id)}
+                                        >
+                                            <span className="history-role-name">{item.topic}</span>
+                                            <span className="history-role-count">{item.messages.length} 条</span>
+                                        </button>
                                     ))
                                 )}
                             </div>
                         </aside>
 
                         <section className="history-detail-panel">
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div className="history-detail-header history-detail-header-side">
                                 <div>
-                                    <label>辩题</label>
-                                    <input value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
+                                    <div className="muted">用户 ID: {userId}</div>
+                                    <h3>{selectedDebateId || '请选择辩论'}</h3>
                                 </div>
-                                <div>
-                                    <label>人物（最多 3 个）</label>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        {[0, 1, 2].map(i => (
-                                            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                <select value={debateParticipants[i] || ''} onChange={e => {
-                                                    const v = e.target.value
-                                                    const next = debateParticipants.slice()
-                                                    // ensure length
-                                                    while (next.length < 3) next.push('')
-                                                    next[i] = v
-                                                    // keep placeholders for empty slots, then trim trailing empties when saving
-                                                    setDebateParticipants(next)
-                                                }}>
-                                                    <option value="">（空）</option>
-                                                    {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                                                    <option value="自定义">自定义</option>
-                                                </select>
-                                                {debateParticipants[i] === '自定义' && (
-                                                    <input placeholder="输入自定义人物名" value={customNames[i] || ''} onChange={e => {
-                                                        const v = e.target.value
-                                                        const cn = customNames.slice()
-                                                        while (cn.length < 3) cn.push('')
-                                                        cn[i] = v
-                                                        setCustomNames(cn)
-                                                    }} />
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
+                                <div className="history-toolbar history-toolbar-side">
+                                    <label className="history-export-label">
+                                        <span>导出格式</span>
+                                        <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
+                                            <option value="markdown">Markdown</option>
+                                            <option value="txt">TXT</option>
+                                        </select>
+                                    </label>
+                                    <button
+                                        className="btn secondary"
+                                        onClick={exportSelectedDebate}
+                                        disabled={!selectedDebateId || !debatesList.find(d => d.id === selectedDebateId)?.messages.length}
+                                    >
+                                        导出当前辩论
+                                    </button>
+                                    <button
+                                        className="btn secondary danger"
+                                        onClick={() => {
+                                            if (!userId || !selectedDebateId) return
+                                            deleteLocalDebate(userId, selectedDebateId)
+                                            refreshDebates(userId)
+                                        }}
+                                        disabled={!selectedDebateId}
+                                    >
+                                        删除当前辩论
+                                    </button>
                                 </div>
+                            </div>
 
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn primary" onClick={async () => {
-                                        const uid = userId || getOrCreateLocalUserId()
-                                        setUserId(uid)
-                                        // build final participants list, replacing '自定义' with entered names
-                                        const participantsToUse = debateParticipants.map((v, i) => {
-                                            if (!v) return ''
-                                            if (v === '自定义') return (customNames[i] || '').trim()
-                                            return v
-                                        }).filter(s => s && s.length > 0)
-                                        if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
-                                        setReply(null)
-                                        await runDebate(uid, debateTopic, participantsToUse)
-                                    }} disabled={isDebating}>{isDebating ? '进行中…' : '开始辩论'}</button>
-                                    <button className="btn secondary" onClick={() => { const uid = userId || getOrCreateLocalUserId(); refreshDebates(uid) }}>刷新记录</button>
-                                    <button className="btn secondary" onClick={exportSelectedDebate} disabled={!selectedDebateId}>导出当前辩论</button>
-                                </div>
-
-                                <div style={{ marginTop: 12 }}>
-                                    <h3>辩论结果</h3>
-                                    <div className="debate-stage" ref={debateStageRef}>
-                                        {selectedDebateId ? (
-                                            (() => {
-                                                // if there's a live debate matching the selected id, show it
-                                                if (liveDebate && liveDebate.id === selectedDebateId) {
-                                                    return liveDebate.messages.map((m, idx) => (
-                                                        <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
-                                                            <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
-                                                            <div className="debate-text">{m.text}</div>
-                                                        </div>
-                                                    ))
-                                                }
-                                                const rec = debatesList.find(d => d.id === selectedDebateId)
-                                                if (!rec) return <p className="muted">（记录已删除）</p>
-                                                return rec.messages.map((m, idx) => (
-                                                    <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
-                                                        <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
-                                                        <div className="debate-text">{m.text}</div>
-                                                    </div>
-                                                ))
-                                            })()
-                                        ) : (
-                                            <p className="muted">（请选择左侧记录或开始新的辩论）</p>
-                                        )}
-                                    </div>
-                                </div>
+                            <div className="history-thread">
+                                {!selectedDebateId ? (
+                                    <p className="muted">（请选择左侧辩论查看历史）</p>
+                                ) : (() => {
+                                    const rec = debatesList.find(d => d.id === selectedDebateId)
+                                    if (!rec) return <p className="muted">（该辩论已删除）</p>
+                                    return rec.messages.length === 0 ? (
+                                        <p className="muted">（该辩论暂无内容）</p>
+                                    ) : rec.messages.map((m, idx) => (
+                                        <div key={`${m.ts}-${idx}`} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                            <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleString()}</div>
+                                            <div className="debate-text">{m.text}</div>
+                                        </div>
+                                    ))
+                                })()}
                             </div>
                         </section>
                     </div>

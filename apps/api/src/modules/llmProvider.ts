@@ -145,7 +145,7 @@ export default {
                         { role: 'user', content: input }
                     ],
                     temperature: 0.35,
-                    max_tokens: 180
+                    max_tokens: 130
                 },
                 { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` } }
             )
