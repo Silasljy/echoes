@@ -54,12 +54,19 @@ body,
 
 body {
     margin: 0;
-    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    font-family: ui-serif, Georgia, 'Times New Roman', Times, serif;
     background: var(--color-neutral-100);
     color: var(--text-primary);
     font-size: var(--text-base);
     line-height: 1.5;
     padding: var(--space-6);
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
 }
 
 .app-shell {
@@ -301,7 +308,6 @@ textarea {
     appearance: none;
     color: var(--text-primary);
     font: inherit;
-    font-family: ui-serif, Georgia, 'Times New Roman', Times, serif;
     text-align: left;
     width: 100%;
     cursor: pointer;
@@ -342,7 +348,6 @@ textarea {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     line-height: 1.6;
-    font-family: ui-serif, Georgia, 'Times New Roman', Times, serif;
 }
 
 /* History cards use border (not both border+shadow) */
