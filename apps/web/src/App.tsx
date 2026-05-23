@@ -264,6 +264,12 @@ export default function App() {
                     // scroll to bottom
                     try { debateStageRef.current?.scrollTo({ top: debateStageRef.current.scrollHeight, behavior: 'smooth' }) } catch (_) { }
                     lastStatement = text
+
+                    // pause a bit between replies so the conversation is easier to read
+                    const isLastMessage = round === 3 && pi === participants.length - 1
+                    if (!isLastMessage) {
+                        await new Promise(resolve => window.setTimeout(resolve, 3000))
+                    }
                 }
             }
         } catch (e) {
