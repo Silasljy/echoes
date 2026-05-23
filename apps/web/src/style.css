@@ -274,11 +274,20 @@ textarea {
 }
 
 .debate-topic-input {
-    min-width: 420px;
+    /* allow the topic input to shrink in narrow containers */
+    min-width: 0;
     max-width: 720px;
     width: 100%;
     margin-bottom: 0;
     flex: 1;
+}
+
+/* ensure a usable minimum width on very small screens */
+@media (max-width: 420px) {
+    .debate-topic-input {
+        min-width: 160px;
+        padding: 10px 12px;
+    }
 }
 
 .debate-topic-block {

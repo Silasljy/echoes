@@ -459,6 +459,37 @@ export default function App() {
         }
     }, [userId, page, selectedHistoryRole])
 
+    // auto-scroll debate stage to bottom when live messages update or when selecting a debate
+    useEffect(() => {
+        const el = debateStageRef.current
+        if (!el) return
+        // allow DOM to render before scrolling inner stage
+        const id = window.setTimeout(() => {
+            try {
+                el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+            } catch (e) {
+                // ignore
+            }
+
+            // after inner scroll, ensure outer page scrolls so the bottom of the debate stage is visible
+            try {
+                window.setTimeout(() => {
+                    try {
+                        const rect = el.getBoundingClientRect()
+                        const bottomOnPage = rect.bottom + window.scrollY
+                        const visibleBottom = window.scrollY + window.innerHeight
+                        // if bottom of debate stage is below viewport, scroll page down a bit to reveal it
+                        if (bottomOnPage > visibleBottom - 8) {
+                            const target = Math.max(0, bottomOnPage - window.innerHeight + 16)
+                            window.scrollTo({ top: target, behavior: 'smooth' })
+                        }
+                    } catch (_) { }
+                }, 120)
+            } catch (_) { }
+        }, 50)
+        return () => window.clearTimeout(id)
+    }, [liveDebate, debatesList, selectedDebateId])
+
     return (
         <>
             {page === 'chat' && (
@@ -732,6 +763,20 @@ export default function App() {
                                     const participantsToUse = debateParticipants.map(v => (v || '').trim()).filter(s => s.length > 0)
                                     if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
                                     setReply(null)
+                                    // robustly scroll the outer page so the user sees the live stage
+                                    const scrollToDebateArea = () => {
+                                        const el = debateStageRef.current
+                                        if (!el) return
+                                        try {
+                                            const rect = el.getBoundingClientRect()
+                                            const top = rect.top + window.scrollY - 24 // offset for header
+                                            window.scrollTo({ top, behavior: 'smooth' })
+                                        } catch (e) {
+                                            try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) { }
+                                        }
+                                    }
+                                    // allow a short delay for layout then scroll
+                                    try { setTimeout(scrollToDebateArea, 80) } catch (_) { scrollToDebateArea() }
                                     await runDebate(uid, debateTopic, participantsToUse)
                                 }} disabled={isDebating}>{isDebating ? '进行中…' : '开始辩论'}</button>
                             </div>
