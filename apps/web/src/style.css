@@ -303,6 +303,13 @@ textarea {
     flex: 0 0 160px;
 }
 
+/* Make placeholder text smaller by two size steps */
+.debate-custom-input::placeholder {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
 .debate-custom-input:disabled {
     cursor: not-allowed;
     opacity: 0.72;
