@@ -268,7 +268,7 @@ export default function App() {
                     // pause a bit between replies so the conversation is easier to read
                     const isLastMessage = round === 3 && pi === participants.length - 1
                     if (!isLastMessage) {
-                        await new Promise(resolve => window.setTimeout(resolve, 3000))
+                        await new Promise(resolve => window.setTimeout(resolve, 5000))
                     }
                 }
             }
