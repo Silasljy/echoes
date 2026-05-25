@@ -33,6 +33,9 @@ export default function App() {
     const [isDebating, setIsDebating] = useState(false)
     const [liveDebate, setLiveDebate] = useState<DebateRecord | null>(null)
     const debateStageRef = React.useRef<HTMLDivElement | null>(null)
+    const debateTopicRef = React.useRef<HTMLInputElement | null>(null)
+    const debateAbortRef = React.useRef<AbortController | null>(null)
+    const stopRequestedRef = React.useRef(false)
 
     const debateFixedRoles = roles.filter(name => name !== '自定义')
 
@@ -246,29 +249,51 @@ export default function App() {
         setSelectedDebateId(liveId)
         let lastStatement = topic
         try {
+            stopRequestedRef.current = false
+            debateAbortRef.current = null
             for (let round = 1; round <= 3; round++) {
                 for (let pi = 0; pi < participants.length; pi++) {
+                    if (stopRequestedRef.current) return messages
                     const speaker = participants[pi]
                     const roleToSend = speaker === '自定义' ? speaker : speaker
-                    const res = await fetch(`${apiBase}/chat`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ role: roleToSend, input: lastStatement, userId: uid, mode: 'debate' })
-                    })
-                    const data = await res.json()
-                    const text = data.reply || ''
-                    const msg: DebateMessage = { speaker, text, ts: Date.now() }
-                    messages.push(msg)
-                    // update live debate immediately
-                    setLiveDebate(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev)
-                    // scroll to bottom
-                    try { debateStageRef.current?.scrollTo({ top: debateStageRef.current.scrollHeight, behavior: 'smooth' }) } catch (_) { }
-                    lastStatement = text
+                    // prepare abort controller for this request
+                    try {
+                        const controller = new AbortController()
+                        debateAbortRef.current = controller
+                        const res = await fetch(`${apiBase}/chat`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ role: roleToSend, input: lastStatement, userId: uid, mode: 'debate' }),
+                            signal: controller.signal
+                        })
+                        const data = await res.json()
+                        const text = data.reply || ''
+                        const msg: DebateMessage = { speaker, text, ts: Date.now() }
+                        messages.push(msg)
+                        // update live debate immediately
+                        setLiveDebate(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev)
+                        // scroll to bottom
+                        try { debateStageRef.current?.scrollTo({ top: debateStageRef.current.scrollHeight, behavior: 'smooth' }) } catch (_) { }
+                        lastStatement = text
 
-                    // pause a bit between replies so the conversation is easier to read
-                    const isLastMessage = round === 3 && pi === participants.length - 1
-                    if (!isLastMessage) {
-                        await new Promise(resolve => window.setTimeout(resolve, 5000))
+                        // pause a bit between replies so the conversation is easier to read
+                        const isLastMessage = round === 3 && pi === participants.length - 1
+                        if (!isLastMessage) {
+                            // check for stop during wait
+                            await new Promise(resolve => {
+                                const t = window.setTimeout(() => { window.clearTimeout(t); resolve(null) }, 3000)
+                            })
+                            if (stopRequestedRef.current) return messages
+                        }
+                    } catch (err: any) {
+                        // if aborted, stop gracefully
+                        if (err && (err.name === 'AbortError' || stopRequestedRef.current)) {
+                            return messages
+                        }
+                        console.warn('debate generation failed', err)
+                        return messages
+                    } finally {
+                        debateAbortRef.current = null
                     }
                 }
             }
@@ -714,7 +739,17 @@ export default function App() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                             <div className="debate-topic-block">
                                 <label>辩题</label>
-                                <input className="debate-topic-input" value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                                    <input ref={debateTopicRef} className="debate-topic-input" value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
+                                    <button
+                                        type="button"
+                                        className="btn secondary topic-clear-btn"
+                                        onClick={() => setDebateTopic('')}
+                                        aria-label="清空辩题"
+                                    >
+                                        清空
+                                    </button>
+                                </div>
                             </div>
                             <div>
                                 <label>人物（最多 3 个）</label>
@@ -766,6 +801,13 @@ export default function App() {
                                 <button className="btn primary" style={{ marginLeft: 0 }} onClick={async () => {
                                     const uid = userId || getOrCreateLocalUserId()
                                     setUserId(uid)
+                                    // validate debate topic
+                                    if (!debateTopic || debateTopic.trim().length === 0) {
+                                        alert('请先输入辩题')
+                                        try { debateTopicRef.current?.focus() } catch (_) { }
+                                        return
+                                    }
+
                                     const participantsToUse = debateParticipants.map(v => (v || '').trim()).filter(s => s.length > 0)
                                     if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
                                     setReply(null)
@@ -785,6 +827,20 @@ export default function App() {
                                     try { setTimeout(scrollToDebateArea, 80) } catch (_) { scrollToDebateArea() }
                                     await runDebate(uid, debateTopic, participantsToUse)
                                 }} disabled={isDebating}>{isDebating ? '进行中…' : '开始辩论'}</button>
+                                {isDebating && (
+                                    <button
+                                        type="button"
+                                        className="btn secondary danger"
+                                        style={{ marginLeft: 8 }}
+                                        onClick={() => {
+                                            stopRequestedRef.current = true
+                                            try { debateAbortRef.current?.abort() } catch (_) { }
+                                            debateAbortRef.current = null
+                                            setIsDebating(false)
+                                            // leave liveDebate so user can see collected messages, but stop further generation
+                                        }}
+                                    >停止辩论</button>
+                                )}
                             </div>
 
                             <div style={{ marginTop: 12 }}>
