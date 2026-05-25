@@ -184,6 +184,10 @@ textarea {
     color: var(--color-primary);
 }
 
+.history-page-header .history-page-actions>.btn.secondary {
+    margin-top: 12px;
+}
+
 .history-page-layout {
     display: grid;
     grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
@@ -276,7 +280,7 @@ textarea {
 .debate-topic-input {
     /* allow the topic input to shrink in narrow containers */
     min-width: 0;
-    max-width: 720px;
+    max-width: 660px;
     width: 100%;
     margin-bottom: 0;
     flex: 1;
@@ -296,6 +300,29 @@ textarea {
     gap: 24px;
     margin-top: 16px;
     margin-bottom: 30px;
+}
+
+.debate-page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-left: 16px;
+}
+
+.debate-participants-block {
+    margin-top: 8px;
+    position: relative;
+    top: -18px;
+}
+
+.debate-participants-block>label {
+    display: block;
+    margin-bottom: 18px;
+}
+
+.debate-participants-row {
+    display: flex;
+    gap: 8px;
 }
 
 .debate-topic-block>label {

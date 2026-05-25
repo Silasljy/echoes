@@ -754,7 +754,7 @@ export default function App() {
                     </div>
 
                     <div className="history-detail-panel">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <div className="debate-page-body">
                             <div className="debate-topic-block">
                                 <label>辩题</label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
@@ -769,9 +769,9 @@ export default function App() {
                                     </button>
                                 </div>
                             </div>
-                            <div>
+                            <div className="debate-participants-block">
                                 <label>人物（最多 3 个）</label>
-                                <div style={{ display: 'flex', gap: 8 }}>
+                                <div className="debate-participants-row">
                                     {[0, 1, 2].map(i => (
                                         <div key={i} className="debate-slot-card">
                                             <button
@@ -792,7 +792,7 @@ export default function App() {
                                 <input
                                     ref={debateCustomRef}
                                     className="debate-custom-input"
-                                    placeholder={`直接输入第 ${debateActiveSlot + 1} 位人物名`}
+                                    placeholder={`输入第 ${debateActiveSlot + 1} 位人物`}
                                     value={debateParticipants[debateActiveSlot] || ''}
                                     onChange={e => {
                                         const next = debateParticipants.slice()
