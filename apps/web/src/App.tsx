@@ -36,8 +36,14 @@ export default function App() {
     const debateTopicRef = React.useRef<HTMLInputElement | null>(null)
     const debateAbortRef = React.useRef<AbortController | null>(null)
     const stopRequestedRef = React.useRef(false)
+    const debateCustomRef = React.useRef<HTMLInputElement | null>(null)
 
     const debateFixedRoles = roles.filter(name => name !== '自定义')
+    const debateQuickSelectCustomValue = '__custom__'
+
+    function getDebateQuickSelectValue(value: string) {
+        return debateFixedRoles.includes(value) ? value : debateQuickSelectCustomValue
+    }
 
     function getOrCreateLocalUserId() {
         const key = 'echoes.userId'
@@ -315,6 +321,18 @@ export default function App() {
         const list = loadLocalDebates(uid)
         setDebatesList(list)
         setSelectedDebateId(list[0]?.id || null)
+    }
+
+    function renderSelectedDebate() {
+        const rec = debatesList.find(d => d.id === selectedDebateId)
+        if (!rec) return <p className="muted">（该辩论已删除）</p>
+        if (rec.messages.length === 0) return <p className="muted">（该辩论暂无内容）</p>
+        return rec.messages.map((m, idx) => (
+            <div key={`${m.ts}-${idx}`} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
+                <div className="debate-text">{m.text}</div>
+            </div>
+        ))
     }
 
     function buildDebateExport(debateId: string, format: 'markdown' | 'txt') {
@@ -772,6 +790,7 @@ export default function App() {
                             <div className="debate-editor-row">
                                 <div className="debate-editor-label">正在编辑第 {debateActiveSlot + 1} 位</div>
                                 <input
+                                    ref={debateCustomRef}
                                     className="debate-custom-input"
                                     placeholder={`直接输入第 ${debateActiveSlot + 1} 位人物名`}
                                     value={debateParticipants[debateActiveSlot] || ''}
@@ -784,16 +803,30 @@ export default function App() {
                                 />
                                 <select
                                     className="debate-quick-select"
-                                    value={debateParticipants[debateActiveSlot] || ''}
+                                    value={getDebateQuickSelectValue(debateParticipants[debateActiveSlot] || '')}
                                     onChange={e => {
                                         const v = e.target.value
                                         const next = debateParticipants.slice()
                                         while (next.length < 3) next.push('')
+                                        // selecting empty should always clear the current slot, including custom text
+                                        if (!v) {
+                                            next[debateActiveSlot] = ''
+                                            setDebateParticipants(next)
+                                            try { debateCustomRef.current?.focus() } catch (_) { }
+                                            return
+                                        }
+                                        // prevent selecting a name that's already chosen in another slot
+                                        const already = next.find((val, idx) => idx !== debateActiveSlot && (val || '') === v)
+                                        if (already) {
+                                            alert('该人物已在其他位置被选择，请先清除或选择其他人物')
+                                            return
+                                        }
                                         next[debateActiveSlot] = v
                                         setDebateParticipants(next)
                                     }}
                                 >
                                     <option value="">（空）</option>
+                                    <option value={debateQuickSelectCustomValue} hidden disabled>（自定义）</option>
                                     {debateFixedRoles.map(name => (
                                         <option key={name} value={name}>{name}</option>
                                     ))}
@@ -810,6 +843,12 @@ export default function App() {
 
                                     const participantsToUse = debateParticipants.map(v => (v || '').trim()).filter(s => s.length > 0)
                                     if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
+                                    // dedupe check
+                                    const uniq = new Set(participantsToUse)
+                                    if (uniq.size !== participantsToUse.length) {
+                                        alert('人物不能相同，请确保每位参与者不同')
+                                        return
+                                    }
                                     setReply(null)
                                     // robustly scroll the outer page so the user sees the live stage
                                     const scrollToDebateArea = () => {
@@ -847,24 +886,14 @@ export default function App() {
                                 <h3>实时辩论</h3>
                                 <div className="debate-stage" ref={debateStageRef}>
                                     {selectedDebateId ? (
-                                        (() => {
-                                            if (liveDebate && liveDebate.id === selectedDebateId) {
-                                                return liveDebate.messages.map((m, idx) => (
-                                                    <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
-                                                        <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
-                                                        <div className="debate-text">{m.text}</div>
-                                                    </div>
-                                                ))
-                                            }
-                                            const rec = debatesList.find(d => d.id === selectedDebateId)
-                                            if (!rec) return <p className="muted">（暂无结果，开始一场辩论吧）</p>
-                                            return rec.messages.map((m, idx) => (
+                                        liveDebate && liveDebate.id === selectedDebateId
+                                            ? liveDebate.messages.map((m, idx) => (
                                                 <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
                                                     <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
                                                     <div className="debate-text">{m.text}</div>
                                                 </div>
                                             ))
-                                        })()
+                                            : renderSelectedDebate()
                                     ) : (
                                         <p className="muted">（开始辩论后，这里会实时显示每个气泡）</p>
                                     )}
