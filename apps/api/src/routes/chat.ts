@@ -18,22 +18,59 @@ router.post('/', async (req, res, next) => {
             throw new ApiError(message, 400)
         }
 
-        const { role, input, mode, userId } = parseResult.data
+        const { role, input, mode, userId, debateTopic, debateContext } = parseResult.data as {
+            role: string
+            input: string
+            mode?: string
+            userId?: string
+            debateTopic?: string
+            debateContext?: string
+        }
         const uid = userId || 'anon'
         const constitution = ConstitutionService.getConstitution(role)
         let reply: string
+        let debateMeta: any = null
 
         if (mode === 'debate') {
-            // For debate mode, use a specialized, lightweight prompt to speed up generation
+            const debateMemoryPack = await ContextManager.buildMemoryPack(uid, role, input)
+            let parsedDebateContext: any[] = []
+            if (debateContext) {
+                try {
+                    const parsed = JSON.parse(debateContext)
+                    if (Array.isArray(parsed)) parsedDebateContext = parsed
+                    else if (parsed && Array.isArray(parsed.turns)) parsedDebateContext = parsed.turns
+                } catch (e) {
+                    console.warn('failed to parse debateContext', e)
+                }
+            }
+
             if (process.env.DEEPSEEK_API_KEY) {
                 try {
-                    reply = await LLMProvider.generateDebateReply({ constitution, input })
+                    const debateResult = await LLMProvider.generateDebateReply({
+                        constitution,
+                        input,
+                        topic: debateTopic || input,
+                        memoryPack: debateMemoryPack,
+                        debateContext: parsedDebateContext
+                    })
+                    reply = debateResult.reply
+                    debateMeta = debateResult.meta
                 } catch (e) {
                     console.error('DeepSeek debate call failed, falling back to mock:', e)
                     reply = await LLM.generateReply({ constitution, memoryPack: { summary: '', recent: [] }, input, evidence: [], requireCitation: false })
+                    debateMeta = {
+                        stance: '中立',
+                        stanceSummary: reply.slice(0, 80),
+                        keyPoints: []
+                    }
                 }
             } else {
                 reply = await LLM.generateReply({ constitution, memoryPack: { summary: '', recent: [] }, input, evidence: [], requireCitation: false })
+                debateMeta = {
+                    stance: '中立',
+                    stanceSummary: reply.slice(0, 80),
+                    keyPoints: []
+                }
             }
         } else {
             const memoryPack = await ContextManager.buildMemoryPack(uid, role, input)
@@ -69,7 +106,7 @@ router.post('/', async (req, res, next) => {
             analysis = AnalysisService.analyze(dialogue)
         }
 
-        res.json({ reply, evidence: aiEvidence, analysis })
+        res.json({ reply, evidence: aiEvidence, analysis, debateMeta })
     } catch (err) {
         next(err)
     }

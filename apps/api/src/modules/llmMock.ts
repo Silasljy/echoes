@@ -5,32 +5,34 @@ type MemoryPack = { summary: string; recent: Array<{ user: string; assistant: st
 export default {
     async generateReply({ constitution, memoryPack, input, evidence, requireCitation }:
         { constitution: Constitution; memoryPack: MemoryPack; input: string; evidence: Array<{ id: string; text: string }>; requireCitation?: boolean }) {
-        // Deterministic simulator of LLM behavior for development.
-        const internalParts: string[] = []
-        internalParts.push(`角色说明：${constitution.instructions}`)
-        if (memoryPack.summary) internalParts.push(`记忆摘要：${memoryPack.summary}`)
+        // Improved deterministic simulator for local development.
+        // Generate a reply that varies with `input` and recent turns so local debugging doesn't produce identical outputs.
+        const parts: string[] = []
+        if (memoryPack.summary) parts.push(`记忆摘要：${memoryPack.summary}`)
         if (memoryPack.recent.length) {
-            internalParts.push('最近对话节选：')
-            memoryPack.recent.forEach((t, i) => internalParts.push(`${i + 1}. 用户：${t.user} → 回答：${t.assistant}`))
-        }
-        if (evidence && evidence.length) {
-            internalParts.push('参考史料：')
-            evidence.forEach(ev => internalParts.push(`- ${ev.text}`))
+            parts.push('最近对话节选：')
+            memoryPack.recent.forEach((t, i) => parts.push(`${i + 1}. 用户：${t.user} → 回答：${t.assistant}`))
         }
 
-        const internalPrompt = internalParts.join('\n')
-
-        // simple heuristic for anachronistic questions
-        const anachronism = /现代|科技|未来|20\d{2}|21世纪/.test(input)
-        if (anachronism) {
-            return `${constitution.name}：关于现代或未来的细节我并不知晓；我更愿讨论伦理与为人之道。`
+        // small hash to pick a template deterministically based on input+recent
+        function hashStr(s: string) {
+            let h = 5381
+            for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i)
+            return Math.abs(h)
         }
 
-        // Simulated concise assistant response (do NOT echo internal prompt)
         const shortAnswer = '行己安人，以礼为先，仁为本。'
-        const response = `${constitution.name}（模拟回应）：\n${shortAnswer}`
+        const lastAssistant = memoryPack.recent.length ? (memoryPack.recent[memoryPack.recent.length - 1].assistant || '') : ''
+        const snippet = String(input || '').slice(0, 36)
+        const templates = [
+            `${constitution.name}（模拟回应）：\n${shortAnswer}`,
+            `${constitution.name}回道：\n关于“${snippet}”我以为${shortAnswer}`,
+            `${constitution.name}曰：${shortAnswer}（承接前言：${lastAssistant.slice(0, 40) || snippet}）`
+        ]
 
-        // console.debug('Internal prompt for LLM simulation:\n', internalPrompt)
+        const idx = hashStr((input || '') + JSON.stringify(memoryPack.recent || [])) % templates.length
+        const response = templates[idx]
+
         if (requireCitation) return response + '\n引用证据IDs: 无'
         return response
     }

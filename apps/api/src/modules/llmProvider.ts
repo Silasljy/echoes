@@ -3,6 +3,28 @@ import { Constitution } from './constitution'
 
 type MemoryPack = { summary: string; recent: Array<{ user: string; assistant: string }> }
 
+type DebateReplyResult = {
+    reply: string
+    meta: {
+        stance: string
+        stanceSummary: string
+        keyPoints: string[]
+    }
+}
+
+type DebateTurnContext = {
+    speaker: string
+    reply: string
+    stance?: string
+    stanceSummary?: string
+}
+
+function clampDebateText(text: string, maxLength: number) {
+    const trimmed = String(text || '').trim()
+    if (trimmed.length <= maxLength) return trimmed
+    return `${trimmed.slice(0, maxLength).replace(/[\s。！？；,，、:：]+$/g, '')}…`
+}
+
 export default {
     async generateReply({ constitution, memoryPack, input, evidence, requireCitation }:
         { constitution: Constitution; memoryPack: MemoryPack; input: string; evidence: Array<{ id: string; text: string }>; requireCitation?: boolean }) {
@@ -121,19 +143,33 @@ export default {
     }
 
     ,
-    async generateDebateReply({ constitution, input }:
-        { constitution: Constitution; input: string }) {
+    async generateDebateReply({ constitution, topic, input, memoryPack, debateContext }:
+        { constitution: Constitution; topic: string; input: string; memoryPack: MemoryPack; debateContext?: DebateTurnContext[] }): Promise<DebateReplyResult> {
         const API_KEY = process.env.DEEPSEEK_API_KEY
         const API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1'
         if (!API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
 
-        // Debate-focused system prompt: concise, argue, respect era and persona
+        const recentTurns = memoryPack.recent
+            .map((t, i) => `${i + 1}. 上轮输入：${t.user}\n   上轮回应：${t.assistant}`)
+            .join('\n')
+
+        const sessionTurns = (debateContext || [])
+            .map((turn, i) => {
+                const stance = turn.stance ? `｜立场：${turn.stance}` : ''
+                const summary = turn.stanceSummary ? `｜摘要：${turn.stanceSummary}` : ''
+                return `${i + 1}. ${turn.speaker}${stance}${summary}\n   回答：${turn.reply}`
+            })
+            .join('\n')
+
         const systemPrompt = `你正在参加一场结构化辩论，扮演的角色为：${constitution.name || '该角色'}。请严格遵守下列要求：\n
-1) 以该角色的历史背景、知识与性格发言，避免使用角色在其去世后才出现的知识；\n
-2) 回答要简洁，优先给出明确立场（支持/反对/中立）并列出最多 2 条有力论点或简短反驳；\n
-3) 禁止输出内部推理或链式思考；不需引用外部资料；不要生成证据 ID；\n
-4) 每次回答控制在较短的篇幅内（尽量不超过 120 个词或约 800 个 token），语言力求直接有力。\n
-请以该角色身份直接回应问题或对前一发言进行反驳。`;
+1) 以该角色的历史背景、知识与性格发言，避免使用角色在其去世后才出现的知识。\n
+2) 辩论不是每轮都要“反着说”。你可以重申自己的观点、补充新的论据、承接上一位发言、部分同意对方、与上一位持相同观点，或在确有理由时再进行反驳；不要为了“辩论感”而强行把立场翻成相反方向。\n
+3) 你会收到“辩题”“角色最近摘要”“本场辩论前文”和“最近发言”。请综合这些内容判断自己当前应如何回应，重点保持“像同一个人一直在说话”。\n
+4) 如果上一位发言与你的观点一致，可以直接表示赞同并补充更有力的论据；如果观点不同，也可以选择回应、修正、保留分歧，而不是机械对立。\n
+
+    2.5) 当前生成的回答不得与本场辩论前文中任一条回复完全相同。即便立场相近，也应使用不同措辞、补充新的论据或对他人的观点做出点评；若确需重复要点，应为其做精炼重述或补充新信息，而非逐字复述。
+5) 禁止输出内部推理或链式思考；不需引用外部资料；不要生成证据 ID。\n
+6) 你的输出必须是严格 JSON，格式如下：\n{\n  "reply": "本轮真正要说的话",\n  "stance": "支持|反对|中立|同意并补充|部分同意|保留",\n  "stanceSummary": "一句话概括当前立场",\n  "keyPoints": ["要点1", "要点2"]\n}\n\n7) reply 必须很短：优先 1-2 句，尽量控制在 60 个汉字左右，最长不要超过 120 个汉字；stanceSummary 更短，尽量不超过 24 个汉字；keyPoints 只保留 1-3 个最重要的关键词。\n\n【辩题】${topic}\n\n【角色最近摘要】${memoryPack.summary || '无'}\n\n【本场辩论前文】\n${sessionTurns || '无'}\n\n【最近发言】\n${recentTurns || '无'}\n\n【当前要回应的内容】${input}\n\n请只输出 JSON，不要输出任何额外说明。`;
 
         try {
             const resp = await axios.post(
@@ -144,14 +180,43 @@ export default {
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: input }
                     ],
-                    temperature: 0.35,
-                    max_tokens: 130
+                    temperature: 0.3,
+                    max_tokens: 140
                 },
                 { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` } }
             )
 
-            let message = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
-            return message
+            const raw = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
+            const text = String(raw).replace(/```json\s*|```/g, '').trim()
+
+            try {
+                const parsed = JSON.parse(text)
+                if (parsed && typeof parsed === 'object') {
+                    const reply = clampDebateText(String(parsed.reply || text), 120)
+                    const stanceSummary = clampDebateText(String(parsed.stanceSummary || reply), 24)
+                    return {
+                        reply,
+                        meta: {
+                            stance: String(parsed.stance || '中立').trim(),
+                            stanceSummary,
+                            keyPoints: Array.isArray(parsed.keyPoints)
+                                ? parsed.keyPoints.map((k: any) => String(k).trim()).filter(Boolean).slice(0, 3)
+                                : []
+                        }
+                    }
+                }
+            } catch (_) {
+                // fall through to text wrapper
+            }
+
+            return {
+                reply: clampDebateText(text, 120),
+                meta: {
+                    stance: '中立',
+                    stanceSummary: clampDebateText(text, 24),
+                    keyPoints: []
+                }
+            }
         } catch (err: any) {
             console.error('DeepSeek debate call failed:', err.response?.data || err.message)
             throw err

@@ -20,7 +20,9 @@ export const chatRequestSchema = z.object({
     role: z.string().min(1, 'role is required'),
     input: z.string().min(1, 'input is required').max(2000, 'input is too long'),
     mode: z.string().optional(),
-    userId: z.string().optional()
+    userId: z.string().optional(),
+    debateTopic: z.string().max(2000, 'debateTopic is too long').optional(),
+    debateContext: z.string().max(20000, 'debateContext is too long').optional()
 })
 
 export const historyGetSchema = z.object({

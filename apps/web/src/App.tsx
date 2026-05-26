@@ -195,7 +195,7 @@ export default function App() {
     }
 
     // Debate storage
-    type DebateMessage = { speaker: string; text: string; ts: number }
+    type DebateMessage = { speaker: string; text: string; ts: number; meta?: { stance: string; stanceSummary: string; keyPoints: string[] } }
     type DebateRecord = { id: string; topic: string; participants: string[]; messages: DebateMessage[]; createdAt: number }
 
     function debateStorageKey(uid: string) {
@@ -229,6 +229,16 @@ export default function App() {
             const list = loadLocalDebates(uid).filter(d => d.id !== id)
             localStorage.setItem(debateStorageKey(uid), JSON.stringify(list))
         } catch (e) { console.warn('delete debate failed', e) }
+    }
+
+    function buildDebateContext(messages: DebateMessage[]) {
+        return messages.map((msg, index) => ({
+            turnIndex: index + 1,
+            speaker: msg.speaker,
+            reply: msg.text,
+            stance: msg.meta?.stance || '中立',
+            stanceSummary: msg.meta?.stanceSummary || ''
+        }))
     }
 
 
@@ -269,12 +279,24 @@ export default function App() {
                         const res = await fetch(`${apiBase}/chat`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ role: roleToSend, input: lastStatement, userId: uid, mode: 'debate' }),
+                            body: JSON.stringify({
+                                role: roleToSend,
+                                input: lastStatement,
+                                debateTopic: topic,
+                                debateContext: JSON.stringify(buildDebateContext(messages)),
+                                userId: uid,
+                                mode: 'debate'
+                            }),
                             signal: controller.signal
                         })
                         const data = await res.json()
                         const text = data.reply || ''
-                        const msg: DebateMessage = { speaker, text, ts: Date.now() }
+                        const msg: DebateMessage = {
+                            speaker,
+                            text,
+                            ts: Date.now(),
+                            meta: data.debateMeta || undefined
+                        }
                         messages.push(msg)
                         // update live debate immediately
                         setLiveDebate(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev)
