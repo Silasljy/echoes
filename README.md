@@ -1,26 +1,234 @@
 
-# echoes — 历史人物对话 Agent 原型
+# echoes
 
-这个仓库包含一个最小可运行的后端原型，展示了项目的核心模块：
-- 角色宪法（`packages/shared` / `apps/api/src/modules/constitution.ts`）
-- 对话上下文管理器（`apps/api/src/modules/contextManager.ts`）
-- 知识核查与注入（`apps/api/src/modules/knowledgeService.ts`）
-- 思辨分析引擎（`apps/api/src/modules/analysisService.ts`）
-- API 服务（`apps/api`）
+> 面向历史人物拟人化对话与辩论的全栈原型。
 
-快速开始：
+一套面向“历史人物对话 + 辩论”的 AI 原型工程。它不是一个单纯的聊天壳，而是一条从前端交互、后端上下文组装、人物记忆管理，到模型生成与本地持久化的完整链路。
 
-1. 安装依赖（需要 pnpm）：
+它为每个历史人物提供一套可追溯的“人格约束”，再配上一条能持续积累的对话记忆和辩论上下文，让 AI 尽量说得像那个人，而不是像一个泛化助手。
 
-```powershell
-cd d:/my_projects/echoes
+> 目标很直接：让历史人物“像自己”，而不是“像 AI 在扮演历史人物”。
+
+```text
+人格约束 + 角色记忆 + 辩论上下文 + 模型生成 + 本地持久化
+```
+
+## 项目亮点
+
+| 维度 | 说明 | 价值 |
+| :-- | :-- | :-- |
+| 对话 | 单人物问答 + 本地历史 | 可持续追溯 |
+| 辩论 | 多角色轮流发言 + 立场约束 | 更像真实讨论 |
+| 记忆 | 按用户与人物拆分存储 | 避免上下文漂移 |
+| 模型 | DeepSeek 优先，本地 Mock 回退 | 便于联调与离线开发 |
+| 部署 | pnpm + Vite + Express + pm2 + nginx | 从开发到上线能落地 |
+
+## 这套系统在做什么
+
+- 历史人物对话：围绕单一人物展开问答，支持本地历史记录。
+- 人物辩论：支持最多 3 位角色围绕同一辩题连续发言，并保存辩论记录。
+- 角色宪法：用规则约束每位人物的知识边界、语言风格与反应方式。
+- 记忆管理：按用户和人物维度保存对话，辅助模型保持上下文一致性。
+- 模型接入：优先使用 DeepSeek，未配置时回退到本地模拟器，便于离线开发。
+
+## 技术栈
+
+- 前端：React 18 + TypeScript + Vite
+- 后端：Node.js + Express + TypeScript
+- 模型接入：DeepSeek Chat API（可选）
+- 本地回退：LLM Mock 模拟器
+- 数据存储：本地 JSON 文件持久化
+- 工程管理：pnpm workspaces
+- 部署：pm2 + nginx + 静态站点发布脚本
+
+## 项目结构
+
+```text
+.
+├── apps/
+│   ├── api/        # Express API、记忆管理、模型调用
+│   └── web/        # React 前端
+├── scripts/
+│   └── deploy.sh   # 一键部署脚本
+├── .env.example
+├── package.json
+├── pnpm-workspace.yaml
+└── README.md
+```
+
+## 运行流程
+
+1. 前端页面收集用户输入，或者在辩论模式下收集辩题与参与者。
+2. 前端把问题、人物、辩题和辩论上下文发给 API。
+3. 后端根据人物宪法、最近对话、辩论前文和检索结果拼装提示词。
+4. 若配置了 `DEEPSEEK_API_KEY`，后端调用 DeepSeek；否则使用本地模拟器。
+5. 返回结果后，前端渲染回复，并把历史写入本地存储。
+6. 辩论模式会额外保存辩论记录，便于后续回看和导出。
+
+```mermaid
+graph LR
+  A[前端输入] --> B[API 接收请求]
+  B --> C[组装角色记忆与辩论上下文]
+  C --> D{是否配置 DeepSeek}
+  D -->|是| E[真实模型生成]
+  D -->|否| F[本地 Mock 生成]
+  E --> G[返回回复与元数据]
+  F --> G
+  G --> H[前端渲染并持久化]
+```
+
+## 环境要求
+
+- Node.js 18 或更高版本
+- pnpm 9 或更高版本
+- Windows、macOS、Linux 均可开发；部署脚本以 Linux 服务器为主
+
+建议先检查版本：
+
+```bash
+node -v
+pnpm -v
+```
+
+## 安装依赖
+
+在仓库根目录执行：
+
+```bash
 pnpm install
+```
+
+如果你的环境对 lockfile 比较严格，而安装被阻止，可以改用：
+
+```bash
+pnpm install --no-frozen-lockfile
+```
+
+## 配置环境
+
+仓库根目录提供了 `.env.example`，你可以据此创建环境文件。最常用的是后端 API 环境：
+
+```bash
+cp .env.example apps/api/.env
+```
+
+或者直接在 `apps/api/.env` 中配置以下变量：
+
+```dotenv
+PORT=4000
+DEEPSEEK_API_KEY=
+DEEPSEEK_API_URL=https://api.deepseek.com/v1
+ECHOES_DB_PATH=./echoes.db.json
+ECHOES_DB_MAX_ENTRIES=1000
+```
+
+前端如果需要显式指定 API 地址，可以设置：
+
+```dotenv
+VITE_API_BASE=http://localhost:4000
+```
+
+说明：
+
+- `DEEPSEEK_API_KEY`：配置后启用真实模型调用；不配置则使用本地模拟器。
+- `DEEPSEEK_API_URL`：可选，自定义 DeepSeek 网关地址。
+- `PORT`：API 服务端口，默认 `4000`。
+- `ECHOES_DB_PATH`：本地 JSON 数据库存储路径。
+- `ECHOES_DB_MAX_ENTRIES`：最大保存条目数，超出后自动裁剪。
+- `VITE_API_BASE`：前端请求后端的基础地址。
+
+## 本地开发
+
+### 一键启动前后端
+
+```bash
+pnpm dev
+```
+
+这个命令会并行启动 `apps/web` 和 `apps/api`。
+
+### 单独启动前端
+
+```bash
+pnpm --filter @echoes/web dev
+```
+
+前端默认运行在 `http://localhost:5173/`。
+
+### 单独启动后端
+
+```bash
 pnpm --filter @echoes/api dev
 ```
 
-2. 使用 POST 请求到 `http://localhost:4000/chat` 测试对话：
+后端默认运行在 `http://localhost:4000/`。
 
-请求体 JSON 示例：
+## 构建
+
+### 构建整个仓库
+
+```bash
+pnpm build
+```
+
+### 仅构建前端
+
+```bash
+pnpm --filter @echoes/web build
+```
+
+### 仅构建后端
+
+```bash
+pnpm --filter @echoes/api build
+```
+
+### 后端类型检查
+
+```bash
+pnpm --filter @echoes/api typecheck
+```
+
+## 预览前端产物
+
+前端构建完成后，可以使用预览服务查看生产构建效果：
+
+```bash
+pnpm --filter @echoes/web preview
+```
+
+## 部署流程
+
+仓库提供了一个一键部署脚本：`scripts/deploy.sh`。
+
+```bash
+sudo ./scripts/deploy.sh main
+```
+
+默认流程大致如下：
+
+1. 拉取最新代码并切换到指定分支。
+2. 安装依赖。
+3. 构建前端并发布到 nginx 静态目录。
+4. 检查或创建 `apps/api/.env`。
+5. 构建后端并重启 `pm2` 中的 `echoes-api`。
+6. 进行基础健康检查并尝试重载 nginx。
+
+如果你不想做站点备份：
+
+```bash
+sudo ./scripts/deploy.sh main --no-backup
+```
+
+## 数据与持久化
+
+- 对话历史默认保存在仓库根目录下的 JSON 文件中。
+- 辩论历史也会被前端本地保存，便于导出和回看。
+- `ECHOES_DB_MAX_ENTRIES` 可以控制历史数据的最大条数，避免文件无限增长。
+
+## API 快速体验
+
+后端提供 `/chat` 接口。你可以直接发请求测试：
 
 ```json
 {
@@ -30,109 +238,36 @@ pnpm --filter @echoes/api dev
 }
 ```
 
-说明：当前实现使用内置的 LLM 模拟器（便于离线测试）。可替换为真实 LLM Provider（OpenAI、Anthropic 等）。
+辩论模式则会额外传递辩题与上下文，由后端拼接为更完整的提示词。
 
-后续建议：实现多角色辩论、接入真实 LLM、完善知识库与持久化存储。
+## 现在有哪些能力
 
-前端运行：
+- 支持单人物问答。
+- 支持人物辩论，并尽量保持角色立场稳定。
+- 支持导出历史对话和辩论记录。
+- 支持本地模拟器离线运行。
+- 支持接入 DeepSeek 真实模型。
 
-```powershell
-pnpm --filter @echoes/web dev
-```
+## 故障排查
 
-DeepSeek 集成：将密钥放到本地环境变量 `DEEPSEEK_API_KEY`（或使用 .env 文件并在运行前加载），后端会优先使用 DeepSeek，失败或未配置时回退为本地模拟器。
-
-部署提醒：生产环境请在 `apps/api/.env` 中放置 `DEEPSEEK_API_KEY`，然后重启 `pm2`；后端会自动从 `apps/api/.env`、项目根目录 `.env` 或进程环境变量中读取。
-
-## 最新状态摘要
-
-- 已集成本地 JSON 持久化对话数据库：默认保存在仓库根 `echoes.db.json`，最大条目数可通过环境变量 `ECHOES_DB_MAX_ENTRIES` 调整（默认 1000）。超过时会自动保留最近 N 条。
-- 前端采用了轻量化设计系统（CSS tokens）：颜色/字号/间距/半径/阴影均使用 CSS 变量集中管理，移除了背景渐变与过度阴影，按设计规范排列组件样式（见 `apps/web/src/style.css`）。
-- 会话清理行为：当前前端在页面卸载或切换到后台时，会尝试通过 `navigator.sendBeacon`（若可用）或同步 XHR 向后端的 `/session/end` 发送通知以清理服务端会话。界面上尚未提供显式的“结束会话”按钮；如需显式结束会话，请在前端实现对应 UI 并调用该接口。
-- 已添加一键部署脚本：`scripts/deploy.sh`（支持分支选择与可选备份），用于在服务器上自动 pull/build/publish 并重启 pm2 进程。
-
-## 环境变量（重要）
-
-- `DEEPSEEK_API_KEY` — DeepSeek API 密钥（可选）。若未配置，后端将使用本地 LLM 模拟器作为回退。
-- `DEEPSEEK_API_URL` — DeepSeek 服务基础 URL（可选）。
-- `PORT` — API 端口（默认值 4000）。
-- `ECHOES_DB_PATH` — JSON 数据库文件路径（默认：`./echoes.db.json`）。
-- `ECHOES_DB_MAX_ENTRIES` — 保存的最大对话条目数（默认：1000）。
-
-## 部署（快速）
-
-在服务器上（假定仓库路径为 `/root/echoes`，nginx 静态目录为 `/var/www/gyx.luxe/web`）：
+- `pnpm install` 失败：尝试 `pnpm install --no-frozen-lockfile`，或检查 pnpm 版本。
+- API 没有走真实模型：确认 `DEEPSEEK_API_KEY` 是否已配置，并检查后端日志。
+- 前端连不上后端：检查 `VITE_API_BASE` 是否正确，以及 API 是否运行在 `4000` 端口。
+- 辩论内容过于重复：确认后端已启用真实模型或当前 mock 行为是否符合预期。
+- 查看 API 日志：
 
 ```bash
-cd /root/echoes
-git pull origin main
-chmod +x scripts/deploy.sh
-# 带备份运行（默认）
-sudo ./scripts/deploy.sh main
-# 或者不做备份
-sudo ./scripts/deploy.sh main --no-backup
+pm2 logs echoes-api --lines 200
 ```
 
-脚本将会：
-
-- 拉取最新代码并运行 `pnpm install`，构建前后端
-- 将 `apps/web/dist` 发布到 `/var/www/gyx.luxe/web`
-- 确保 `apps/api/.env` 存在（若缺失则创建占位文件，需在服务器上补入真实密钥）
-- 构建后端并重启或启动名为 `echoes-api` 的 pm2 进程
-- 运行基础健康检查并尝试重载 nginx
-
-如果你希望手动执行最小化的更新（不做备份），可以按下面步骤：
+- 查看 nginx 错误日志：
 
 ```bash
-cd /root/echoes
-git pull origin main
-pnpm install
-pnpm --filter @echoes/api build
-pm2 restart echoes-api
-pnpm --filter @echoes/web build
-sudo rm -rf /var/www/gyx.luxe/web/*
-sudo cp -r apps/web/dist/* /var/www/gyx.luxe/web/
-sudo chown -R www-data:www-data /var/www/gyx.luxe/web
-sudo nginx -t && sudo systemctl reload nginx
+sudo tail -n 200 /var/log/nginx/error.log
 ```
 
-## 前端（开发与部署）
+## 贡献与约束
 
-- 本地开发：在仓库根目录运行以下命令启动前端开发服务器（热重载）：
-
-```bash
-pnpm --filter @echoes/web dev
-```
-
-- 构建生产版本：
-
-```bash
-pnpm --filter @echoes/web build
-```
-
-- 构建产物位置：`apps/web/dist`，该目录为静态站点目录。若使用本仓库提供的一键部署脚本，脚本会将 `apps/web/dist` 的内容发布到服务器上的 `/var/www/gyx.luxe/web`。
-
-- 静态部署（手动）：
-
-```bash
-pnpm --filter @echoes/web build
-sudo rm -rf /var/www/gyx.luxe/web/*
-sudo cp -r apps/web/dist/* /var/www/gyx.luxe/web/
-sudo chown -R www-data:www-data /var/www/gyx.luxe/web
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-- 前端与 API 的连接：前端在运行时通过环境变量 `VITE_API_URL` 指定后端地址（默认为 `https://gyx.luxe` 或 `http://localhost:4000` 在本地开发）。构建前可在环境或 CI 中设置该变量以指向正确的 API 地址。
-
-- 功能要点：Enter 发送消息、分段显示 AI 回复、展示证据并标注“AI 生成，未经证实”、本地保存会话历史。前端在卸载/隐藏时会尝试调用后端的 `/session/end` 接口以通知服务端（通过 `sendBeacon` 或同步 XHR）；若需显式的“结束会话”按钮，需在前端实现并调用该接口。
-
-
-## 注意与故障排查
-
-- 若 `pnpm install` 报错 `ERR_PNPM_OUTDATED_LOCKFILE`，可运行 `pnpm install --no-frozen-lockfile` 更新 lockfile，或在环境中升级 pnpm。
-- 查看 API 日志：`pm2 logs echoes-api --lines 200`
-- 查看 Nginx 错误日志：`sudo tail -n 200 /var/log/nginx/error.log`
-
-## 贡献
-
-请勿将密钥或敏感配置提交到仓库（`apps/api/.env` 已加入忽略）。生产环境请在服务器上单独维护 `.env` 或使用托管服务的密钥管理功能。
+- 不要把密钥或敏感配置提交到仓库。
+- 生产环境建议把 `apps/api/.env` 留在服务器上单独维护。
+- 如果你在新增功能，优先保证“人物一致性”和“上下文连续性”这两个核心目标。
