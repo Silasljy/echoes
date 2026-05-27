@@ -1,17 +1,90 @@
 
 # echoes
 
-> 面向历史人物拟人化对话与辩论的全栈原型。
+![License](https://img.shields.io/github/license/gyx114/echoes) ![GitHub top language](https://img.shields.io/github/languages/top/gyx114/echoes) ![Last commit](https://img.shields.io/github/last-commit/gyx114/echoes)
 
-一套面向“历史人物对话 + 辩论”的 AI 原型工程。它不是一个单纯的聊天壳，而是一条从前端交互、后端上下文组装、人物记忆管理，到模型生成与本地持久化的完整链路。
+> 历史人物拟人化对话与多角色辩论的全栈原型。提供从前端交互、后端上下文组装、记忆管理，到模型生成与本地持久化的一整套解决方案。
 
-它为每个历史人物提供一套可追溯的“人格约束”，再配上一条能持续积累的对话记忆和辩论上下文，让 AI 尽量说得像那个人，而不是像一个泛化助手。
-
-> 目标很直接：让历史人物“像自己”，而不是“像 AI 在扮演历史人物”。
+本项目的目标是：让 AI 在回答时更“像”历史人物本身，而非泛化的助手。通过“人格约束 + 角色记忆 + 辩论上下文”的组合，尽量保证角色的语言风格与立场一致性。
 
 ```text
 人格约束 + 角色记忆 + 辩论上下文 + 模型生成 + 本地持久化
 ```
+
+## 快速开始
+
+下面的步骤会把“环境准备 → 安装依赖 → 启动开发服务 → 验证运行”整合为一个可复制的上手流程。
+
+1) 环境与依赖（快速安装）
+
+推荐 Node.js 版本 >= 18（若需 LTS，使用官方 LTS 版）。下面列出常用下载与安装方式：
+
+- Node.js（包含 npm）：[Node.js 官方下载](https://nodejs.org/zh-cn/download/)
+- npm 单独安装/升级：[npm 官方安装指南](https://www.npmjs.com/get-npm)
+- pnpm（项目使用 pnpm workspaces）：[pnpm 安装说明](https://pnpm.io/installation)
+
+快速安装示例：
+
+```bash
+# 检查版本
+node -v
+pnpm -v
+
+# 如果缺少 pnpm，可用 npm 或 Corepack 安装：
+npm install -g pnpm
+# 或（Node >= 16.14）使用 corepack
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+2) 安装依赖（仓库根目录）
+
+```bash
+pnpm install
+```
+
+
+3) 配置环境
+
+请参阅下方 **配置环境** 小节获取 `.env` 的跨平台复制、完整变量列表和示例配置。
+
+4) 启动开发服务（并行启动前后端）
+
+```bash
+pnpm dev
+```
+
+默认地址：前端 `http://localhost:5173`，后端 `http://localhost:4000`。
+
+5) 快速验证（参见下方 `API 快速体验` 中的 curl/PowerShell/Postman 示例）
+
+提示：如需仅启动单端服务，使用：
+
+```bash
+pnpm --filter @echoes/web dev   # 前端
+pnpm --filter @echoes/api dev   # 后端
+```
+
+> 可选：在 `apps/api/.env` 填写 `DEEPSEEK_API_KEY` 以启用真实模型；未填则使用本地 Mock。
+
+## 目录
+
+- [项目亮点](#项目亮点)
+- [这套系统在做什么](#这套系统在做什么)
+- [技术栈](#技术栈)
+- [项目结构](#项目结构)
+- [运行流程](#运行流程)
+- [环境要求](#环境要求)
+- [安装依赖](#安装依赖)
+- [配置环境](#配置环境)
+- [本地开发](#本地开发)
+- [构建](#构建)
+- [部署流程](#部署流程)
+- [数据与持久化](#数据与持久化)
+- [API 快速体验](#api-快速体验)
+- [故障排查](#故障排查)
+- [贡献与约束](#贡献与约束)
+
 
 ## 项目亮点
 
@@ -79,26 +152,15 @@ graph LR
 
 ## 环境要求
 
-- Node.js 18 或更高版本
-- pnpm 9 或更高版本
-- Windows、macOS、Linux 均可开发；部署脚本以 Linux 服务器为主
+本项目的环境准备与依赖安装已整合到上方的 **快速开始 → 环境与依赖（快速安装）** 小节，建议按该小节步骤执行。该处仅作简要说明：
 
-建议先检查版本：
-
-```bash
-node -v
-pnpm -v
-```
+- 建议使用 Node.js LTS（>=18）
+- 项目使用 `pnpm` 管理工作区（不强制，但推荐）
+- 如果需要真实模型，请在 `apps/api/.env` 中配置 `DEEPSEEK_API_KEY`
 
 ## 安装依赖
 
-在仓库根目录执行：
-
-```bash
-pnpm install
-```
-
-如果你的环境对 lockfile 比较严格，而安装被阻止，可以改用：
+快速开始中已包含依赖安装步骤（见 **快速开始 → 环境与依赖**）。在此处补充：若因为 lockfile 导致安装失败，可使用：
 
 ```bash
 pnpm install --no-frozen-lockfile
@@ -106,10 +168,14 @@ pnpm install --no-frozen-lockfile
 
 ## 配置环境
 
-仓库根目录提供了 `.env.example`，你可以据此创建环境文件。最常用的是后端 API 环境：
+仓库根目录提供了 `.env.example`，你可以据此创建环境文件（跨平台示例）：
 
 ```bash
+# macOS / Linux
 cp .env.example apps/api/.env
+
+# Windows PowerShell
+copy .env.example apps\api\.env
 ```
 
 或者直接在 `apps/api/.env` 中配置以下变量：
@@ -228,7 +294,23 @@ sudo ./scripts/deploy.sh main --no-backup
 
 ## API 快速体验
 
-后端提供 `/chat` 接口。你可以直接发请求测试：
+后端提供 `POST /chat` 接口用于快速体验。默认地址为 `http://localhost:4000/chat`（可通过 `VITE_API_BASE` 覆盖）。
+
+快速 `curl` 示例：
+
+```bash
+curl -X POST http://localhost:4000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"role":"孔子","input":"什么是仁？","mode":"dialogue"}'
+```
+
+Windows PowerShell 示例（无 curl）：
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:4000/chat -Method POST -Body (@{role='孔子';input='什么是仁？';mode='dialogue'} | ConvertTo-Json) -ContentType 'application/json'
+```
+
+请求示例（可直接发送的 JSON）：
 
 ```json
 {
@@ -238,7 +320,22 @@ sudo ./scripts/deploy.sh main --no-backup
 }
 ```
 
-辩论模式则会额外传递辩题与上下文，由后端拼接为更完整的提示词。
+示例返回（示意）：
+
+```json
+{
+  "reply": "仁，是爱人也。以恭俭为礼，以诚信为本，推己及人。",
+  "debateMeta": null
+}
+```
+
+Postman：
+
+- 新建 `POST` 请求，URL 填 `http://localhost:4000/chat`。
+- 在 `Headers` 添加 `Content-Type: application/json`。
+- 在 `Body` 选择 `raw` → `JSON`，粘贴上面的请求 JSON。
+
+辩论模式需要在请求体中加入 `debateContext`（由前端构造的辩论轮次数组）或 `mode: "debate"`，服务器会据此拼接更完整的提示词并返回包含 `stance`、`stanceSummary` 的结构化结果。
 
 ## 现在有哪些能力
 
