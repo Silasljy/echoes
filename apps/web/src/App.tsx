@@ -38,6 +38,12 @@ export default function App() {
     const stopRequestedRef = React.useRef(false)
     const debateCustomRef = React.useRef<HTMLInputElement | null>(null)
 
+    const [isSending, setIsSending] = useState(false)
+
+    function genClientMessageId() {
+        return `c-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
+    }
+
     const debateFixedRoles = roles.filter(name => name !== '自定义')
     const debateQuickSelectCustomValue = '__custom__'
 
@@ -439,26 +445,40 @@ export default function App() {
     }
 
     async function send() {
+        const trimmed = (input || '').trim()
+        if (!trimmed) return
+        if (isSending) return
+
+        setIsSending(true)
         setReply('加载中...')
         const roleToSend = role === '自定义' ? (customRole || '未知人物') : role
         const uid = userId || getOrCreateLocalUserId()
         if (!userId) setUserId(uid)
 
-        const res = await fetch(`${apiBase}/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: roleToSend, input, userId: uid })
-        })
-        const data = await res.json()
-        setReply(data.reply)
-        setEvidence(data.evidence)
-        setExpandedEvidence([])
+        const clientMessageId = genClientMessageId()
+        let data: any = null
+        try {
+            const res = await fetch(`${apiBase}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: roleToSend, input: trimmed, userId: uid, clientMessageId })
+            })
+            data = await res.json()
+            setReply(data.reply)
+            setEvidence(data.evidence)
+            setExpandedEvidence([])
 
-        // save locally
-        const turn: LocalTurn = { user: input, assistant: data.reply || '', ts: Date.now() }
-        saveLocalTurn(uid, roleToSend, turn)
-        // refresh history view if open
-        if (page === 'history') refreshHistoryPreservingSelection(uid, roleToSend)
+            // save locally
+            const turn: LocalTurn = { user: trimmed, assistant: data.reply || '', ts: Date.now() }
+            saveLocalTurn(uid, roleToSend, turn)
+            // refresh history view if open
+            if (page === 'history') refreshHistoryPreservingSelection(uid, roleToSend)
+        } catch (err) {
+            console.warn('send failed', err)
+            setReply('请求失败，请稍后重试')
+        } finally {
+            setIsSending(false)
+        }
     }
 
     useEffect(() => {
@@ -606,7 +626,8 @@ export default function App() {
                                         onKeyDown={e => {
                                             if (e.key === 'Enter' && !e.shiftKey) {
                                                 e.preventDefault()
-                                                send()
+                                                const trimmed = (input || '').trim()
+                                                if (trimmed && !isSending) send()
                                             }
                                         }}
                                     />
@@ -614,7 +635,12 @@ export default function App() {
                                 <div className="field send">
                                     <label>&nbsp;</label>
                                     <div className="flex">
-                                        <button className="btn primary" onClick={send}>发送</button>
+                                        <button className="btn secondary" onClick={() => setInput('')} disabled={!(input || '').trim()} style={{ marginRight: 8 }}>
+                                            清空
+                                        </button>
+                                        <button className="btn primary" onClick={send} disabled={isSending || !(input || '').trim()}>
+                                            {isSending ? '发送中...' : '发送'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
