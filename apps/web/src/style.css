@@ -202,6 +202,146 @@ textarea {
     z-index: 1;
 }
 
+.reverseqa-page {
+    display: block;
+    min-height: calc(100vh - var(--space-12));
+}
+
+.reverseqa-container {
+    max-width: 1180px;
+}
+
+.reverseqa-topbar {
+    align-items: flex-start;
+}
+
+.reverseqa-topbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.reverseqa-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+}
+
+.reverseqa-shell.history-open {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+}
+
+.reverseqa-main-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+}
+
+.reverseqa-history-drawer {
+    display: none;
+    flex-direction: column;
+    gap: var(--space-3);
+    background: rgba(255, 250, 240, 0.96);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-2);
+    box-shadow: var(--shadow-2);
+    padding: var(--space-4);
+    min-height: 0;
+    max-height: calc(100vh - 180px);
+    overflow: auto;
+}
+
+.reverseqa-shell.history-open .reverseqa-history-drawer {
+    display: flex;
+}
+
+.reverseqa-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.reverseqa-history-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--color-primary);
+}
+
+.reverseqa-history-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.reverseqa-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.reverseqa-history-card {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    border: 1px solid var(--color-neutral-300);
+    border-radius: 16px;
+    background: #fffefc;
+    padding: 10px;
+    box-shadow: var(--shadow-1);
+}
+
+.reverseqa-history-card.active {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px #e7d8b9a9, var(--shadow-1);
+}
+
+.reverseqa-history-main {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.reverseqa-history-role {
+    font-size: 14px;
+    color: var(--color-primary);
+    letter-spacing: 1px;
+}
+
+.reverseqa-history-topic {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.reverseqa-history-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.reverseqa-history-delete {
+    align-self: flex-start;
+    border: 1px solid rgba(176, 75, 57, 0.18);
+    background: #fff6f6;
+    color: var(--color-error);
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.reverseqa-history-delete:hover {
+    background: #fdecec;
+}
+
 .reverseqa-page .history-page-layout {
     align-items: start;
 }
@@ -263,9 +403,31 @@ textarea {
 
 .reverseqa-controls {
     display: grid;
-    grid-template-columns: minmax(120px, 180px) 1fr minmax(90px, 140px);
+    grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(180px, 260px);
     gap: var(--space-3);
     align-items: end;
+}
+
+.reverseqa-controls .field.grow {
+    min-width: 0;
+}
+
+.reverseqa-controls .field.send {
+    align-items: stretch;
+}
+
+.reverseqa-controls .field.send .flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.reverseqa-controls .field.send .btn {
+    flex: 1 1 120px;
+    min-width: 112px;
+    margin: 0;
 }
 
 .reverseqa-session-list .history-role {
@@ -943,6 +1105,19 @@ textarea {
 
     .controls {
         grid-template-columns: 1fr;
+    }
+
+    .reverseqa-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .reverseqa-controls .field.send .flex {
+        justify-content: stretch;
+    }
+
+    .reverseqa-controls .field.send .btn {
+        flex: 1 1 0;
+        min-width: 0;
     }
 
     .field.send {
