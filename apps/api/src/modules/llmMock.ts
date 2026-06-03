@@ -35,5 +35,36 @@ export default {
 
         if (requireCitation) return response + '\n引用证据IDs: 无'
         return response
+    },
+
+    async generateReverseQuestion({ constitution, topic, input, memoryPack, stage }:
+        { constitution: Constitution; topic: string; input: string; memoryPack: MemoryPack; stage?: string }) {
+        const parts: string[] = []
+        if (memoryPack.summary) parts.push(`记忆摘要：${memoryPack.summary}`)
+        if (memoryPack.recent.length) {
+            parts.push('最近反向问答：')
+            memoryPack.recent.forEach((t, i) => parts.push(`${i + 1}. 用户回答：${t.user} → 人物追问：${t.assistant}`))
+        }
+
+        function hashStr(s: string) {
+            let h = 5381
+            for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i)
+            return Math.abs(h)
+        }
+
+        const topicSnippet = String(topic || '这个话题').slice(0, 18)
+        const inputSnippet = String(input || '请继续').slice(0, 24)
+        const templates = [
+            `你怎么看“${topicSnippet}”中的关键一义？`,
+            `若从“${inputSnippet}”继续，你会如何回应？`,
+            `关于“${topicSnippet}”，我想追问你一句：你更重视哪一点？`
+        ]
+        const idx = hashStr((topic || '') + (input || '') + JSON.stringify(memoryPack.recent || [])) % templates.length
+        const question = `${constitution.name}问：${templates[idx]}`
+
+        return {
+            question,
+            meta: { focus: topicSnippet }
+        }
     }
 }

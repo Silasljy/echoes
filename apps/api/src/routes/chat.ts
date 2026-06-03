@@ -25,11 +25,56 @@ router.post('/', async (req, res, next) => {
             userId?: string
             debateTopic?: string
             debateContext?: string
+            reverseTopic?: string
+            reverseStage?: string
         }
         const uid = userId || 'anon'
         const constitution = ConstitutionService.getConstitution(role)
         let reply: string
         let debateMeta: any = null
+
+        if (mode === 'reverseQA') {
+            const reverseMemoryPack = await ContextManager.buildMemoryPack(uid, role, input)
+            const reverseTopic = (parseResult.data as any).reverseTopic || input
+            const reverseStage = (parseResult.data as any).reverseStage || 'start'
+
+            if (process.env.DEEPSEEK_API_KEY) {
+                try {
+                    const reverseResult = await LLMProvider.generateReverseQuestion({
+                        constitution,
+                        topic: reverseTopic,
+                        input,
+                        memoryPack: reverseMemoryPack,
+                        stage: reverseStage
+                    })
+                    reply = reverseResult.question
+                } catch (e) {
+                    console.error('DeepSeek reverseQA call failed, falling back to mock:', e)
+                    reply = (await LLM.generateReverseQuestion({
+                        constitution,
+                        topic: reverseTopic,
+                        input,
+                        memoryPack: reverseMemoryPack,
+                        stage: reverseStage
+                    })).question
+                }
+            } else {
+                reply = (await LLM.generateReverseQuestion({
+                    constitution,
+                    topic: reverseTopic,
+                    input,
+                    memoryPack: reverseMemoryPack,
+                    stage: reverseStage
+                })).question
+            }
+
+            await ContextManager.appendTurn(uid, role, {
+                user: reverseStage === 'start' ? `话题：${reverseTopic}` : input,
+                assistant: reply
+            })
+
+            return res.json({ reply, evidence: [], analysis: null, debateMeta: null })
+        }
 
         if (mode === 'debate') {
             const debateMemoryPack = await ContextManager.buildMemoryPack(uid, role, input)

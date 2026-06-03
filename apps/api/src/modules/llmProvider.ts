@@ -19,6 +19,13 @@ type DebateTurnContext = {
     stanceSummary?: string
 }
 
+type ReverseQuestionResult = {
+    question: string
+    meta: {
+        focus: string
+    }
+}
+
 function clampDebateText(text: string, maxLength: number) {
     const trimmed = String(text || '').trim()
     if (trimmed.length <= maxLength) return trimmed
@@ -219,6 +226,71 @@ export default {
             }
         } catch (err: any) {
             console.error('DeepSeek debate call failed:', err.response?.data || err.message)
+            throw err
+        }
+    }
+
+    ,
+    async generateReverseQuestion({ constitution, topic, input, memoryPack, stage }:
+        { constitution: Constitution; topic: string; input: string; memoryPack: MemoryPack; stage?: string }): Promise<ReverseQuestionResult> {
+        const API_KEY = process.env.DEEPSEEK_API_KEY
+        const API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1'
+        if (!API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
+
+        const recentTurns = memoryPack.recent
+            .map((t, i) => `${i + 1}. 用户回答：${t.user}\n   人物追问：${t.assistant}`)
+            .join('\n')
+
+        const systemPrompt = `你正在扮演历史人物 ${constitution.name || '该角色'}，现在不是回答用户，而是向用户发问，和用户进行一轮一轮的反向问答。
+
+要求：
+1) 你每次只提出一个问题，问题要简洁、有启发性，并且符合该人物的时代、知识和性格。
+2) 问题应尽量承接“主题”和“上一轮用户回答”，并在此基础上继续追问。
+3) 不要输出解释、称呼、前言、总结或链式思考；不要模拟 AI 身份。
+4) 如果用户给出的内容过于宽泛，可先围绕主题追问一个更具体的问题。
+5) 输出必须是严格 JSON，格式如下：
+{
+  "question": "你要问用户的问题",
+  "focus": "这一问想聚焦的核心点"
+}
+
+【主题】${topic}
+
+【当前输入】${input}
+
+【最近反向问答】
+${recentTurns || '无'}
+
+请只输出 JSON，不要输出任何额外说明。`;
+
+        try {
+            const resp = await axios.post(
+                `${API_URL}/chat/completions`,
+                {
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: input }
+                    ],
+                    temperature: 0.35,
+                    max_tokens: 120
+                },
+                { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` } }
+            )
+
+            const raw = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
+            const text = String(raw).replace(/```json\s*|```/g, '').trim()
+
+            try {
+                const parsed = JSON.parse(text)
+                const question = clampDebateText(String(parsed.question || text), 120)
+                const focus = clampDebateText(String(parsed.focus || question), 32)
+                return { question, meta: { focus } }
+            } catch (_) {
+                return { question: clampDebateText(text, 120), meta: { focus: clampDebateText(text, 32) } }
+            }
+        } catch (err: any) {
+            console.error('DeepSeek reverseQA call failed:', err.response?.data || err.message)
             throw err
         }
     }

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 
 type LocalTurn = { user: string; assistant: string; ts: number }
 type HistoryStore = Record<string, LocalTurn[]>
+type ReverseQAMessage = { speaker: string; text: string; ts: number }
+type ReverseQASession = { id: string; role: string; topic: string; messages: ReverseQAMessage[]; createdAt: number; updatedAt: number }
 
 export default function App() {
     const [role, setRole] = useState('孔子')
@@ -20,7 +22,7 @@ export default function App() {
     const [evidence, setEvidence] = useState<any>(null)
     const [expandedEvidence, setExpandedEvidence] = useState<number[]>([])
     const [userId, setUserId] = useState<string | null>(null)
-    const [page, setPage] = useState<'chat' | 'history' | 'debate' | 'debateHistory'>('chat')
+    const [page, setPage] = useState<'chat' | 'history' | 'debate' | 'debateHistory' | 'reverseQA'>('chat')
     const [historyStore, setHistoryStore] = useState<HistoryStore>({})
     const [selectedHistoryRole, setSelectedHistoryRole] = useState('')
     const [exportFormat, setExportFormat] = useState<'markdown' | 'txt'>('markdown')
@@ -39,12 +41,89 @@ export default function App() {
     const debateCustomRef = React.useRef<HTMLInputElement | null>(null)
 
     const [isSending, setIsSending] = useState(false)
+    const [reverseQATopic, setReverseQATopic] = useState('请围绕“仁”的理解连续向我发问。')
+    const [reverseQAInput, setReverseQAInput] = useState('')
+    const [reverseQAMessages, setReverseQAMessages] = useState<ReverseQAMessage[]>([])
+    const [reverseQASessions, setReverseQASessions] = useState<ReverseQASession[]>([])
+    const [selectedReverseQASessionId, setSelectedReverseQASessionId] = useState<string | null>(null)
+    const [isReverseQASending, setIsReverseQASending] = useState(false)
+    const [reverseQAQuestion, setReverseQAQuestion] = useState('（尚未开始）')
 
     function genClientMessageId() {
         return `c-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
     }
 
+    function reverseQASessionStorageKey(uid: string) {
+        return `echoes.reverseqa.${uid}`
+    }
+
+    function loadLocalReverseQASessions(uid: string): ReverseQASession[] {
+        try {
+            const raw = localStorage.getItem(reverseQASessionStorageKey(uid))
+            if (!raw) return []
+            return JSON.parse(raw) as ReverseQASession[]
+        } catch (e) {
+            console.warn('load reverseQA sessions failed', e)
+            return []
+        }
+    }
+
+    function saveLocalReverseQASession(uid: string, session: ReverseQASession) {
+        try {
+            const list = loadLocalReverseQASessions(uid)
+            const index = list.findIndex(item => item.id === session.id)
+            if (index >= 0) list[index] = session
+            else list.unshift(session)
+            while (list.length > 50) list.pop()
+            localStorage.setItem(reverseQASessionStorageKey(uid), JSON.stringify(list))
+        } catch (e) {
+            console.warn('save reverseQA session failed', e)
+        }
+    }
+
+    function deleteLocalReverseQASession(uid: string, id: string) {
+        try {
+            const list = loadLocalReverseQASessions(uid).filter(item => item.id !== id)
+            localStorage.setItem(reverseQASessionStorageKey(uid), JSON.stringify(list))
+        } catch (e) {
+            console.warn('delete reverseQA session failed', e)
+        }
+    }
+
+    function refreshReverseQASessions(uid: string, preferredId?: string) {
+        const list = loadLocalReverseQASessions(uid)
+        setReverseQASessions(list)
+        const nextId = preferredId || list[0]?.id || null
+        setSelectedReverseQASessionId(nextId)
+        const current = nextId ? list.find(item => item.id === nextId) : null
+        if (current) {
+            setReverseQATopic(current.topic)
+            setReverseQAMessages(current.messages.slice())
+            const lastMessage = current.messages[current.messages.length - 1]
+            setReverseQAQuestion(lastMessage?.speaker && lastMessage.speaker !== '用户' ? lastMessage.text : '（尚未开始）')
+        } else {
+            setReverseQATopic('请围绕“仁”的理解连续向我发问。')
+            setReverseQAMessages([])
+            setReverseQAQuestion('（尚未开始）')
+        }
+        return list
+    }
+
+    function persistReverseQASession(uid: string, sessionId: string, roleName: string, topic: string, messages: ReverseQAMessage[]) {
+        const session: ReverseQASession = {
+            id: sessionId,
+            role: roleName,
+            topic,
+            messages: messages.slice(),
+            createdAt: messages[0]?.ts || Date.now(),
+            updatedAt: Date.now()
+        }
+        saveLocalReverseQASession(uid, session)
+        refreshReverseQASessions(uid, sessionId)
+    }
+
     const debateFixedRoles = roles.filter(name => name !== '自定义')
+
     const debateQuickSelectCustomValue = '__custom__'
 
     function getDebateQuickSelectValue(value: string) {
@@ -419,6 +498,44 @@ export default function App() {
         setPage('debateHistory')
     }
 
+    function openReverseQA() {
+        const uid = userId || getOrCreateLocalUserId()
+        setUserId(uid)
+        refreshReverseQASessions(uid)
+        setPage('reverseQA')
+    }
+
+    function startNewReverseQASession() {
+        const uid = userId || getOrCreateLocalUserId()
+        setUserId(uid)
+        setSelectedReverseQASessionId(null)
+        setReverseQATopic('请围绕“仁”的理解连续向我发问。')
+        setReverseQAInput('')
+        setReverseQAMessages([])
+        setReverseQAQuestion('（尚未开始）')
+        setPage('reverseQA')
+    }
+
+    function loadReverseQASession(sessionId: string) {
+        const uid = userId || getOrCreateLocalUserId()
+        const session = reverseQASessions.find(item => item.id === sessionId)
+        if (!session) return
+        setUserId(uid)
+        setSelectedReverseQASessionId(session.id)
+        setReverseQATopic(session.topic)
+        setReverseQAMessages(session.messages.slice())
+        const lastMessage = session.messages[session.messages.length - 1]
+        setReverseQAQuestion(lastMessage?.speaker && lastMessage.speaker !== '用户' ? lastMessage.text : '（尚未开始）')
+        setReverseQAInput('')
+        setPage('reverseQA')
+    }
+
+    function removeReverseQASession(sessionId: string) {
+        if (!userId) return
+        deleteLocalReverseQASession(userId, sessionId)
+        refreshReverseQASessions(userId, selectedReverseQASessionId === sessionId ? undefined : selectedReverseQASessionId || undefined)
+    }
+
 
     function exportSelectedHistory() {
         if (!userId || !selectedHistoryRole) return
@@ -481,6 +598,61 @@ export default function App() {
         }
     }
 
+    async function sendReverseQA() {
+        const topic = (reverseQATopic || '').trim()
+        const answer = (reverseQAInput || '').trim()
+        const isFirstQuestion = reverseQAMessages.length === 0
+        const stage = isFirstQuestion ? 'start' : 'answer'
+        const contentToSend = isFirstQuestion ? topic : answer
+
+        if (!topic) return
+        if (!isFirstQuestion && !answer) return
+        if (isReverseQASending) return
+
+        setIsReverseQASending(true)
+        const roleToSend = role === '自定义' ? (customRole || '未知人物') : role
+        const uid = userId || getOrCreateLocalUserId()
+        if (!userId) setUserId(uid)
+
+        const sessionId = selectedReverseQASessionId || `reverseqa-${Date.now()}`
+        const clientMessageId = genClientMessageId()
+        const nextMessages: ReverseQAMessage[] = isFirstQuestion
+            ? reverseQAMessages.slice()
+            : [...reverseQAMessages, { speaker: '用户', text: answer, ts: Date.now() }]
+
+        try {
+            const res = await fetch(`${apiBase}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role: roleToSend,
+                    input: contentToSend,
+                    userId: uid,
+                    mode: 'reverseQA',
+                    reverseTopic: topic,
+                    reverseStage: stage,
+                    clientMessageId
+                })
+            })
+            const data = await res.json()
+            const question = String(data.reply || '').trim()
+            if (!question) {
+                throw new Error('empty reverseQA reply')
+            }
+
+            const updatedMessages: ReverseQAMessage[] = [...nextMessages, { speaker: roleToSend, text: question, ts: Date.now() }]
+            setReverseQAMessages(updatedMessages)
+            setReverseQAQuestion(question)
+            setReverseQAInput('')
+            persistReverseQASession(uid, sessionId, roleToSend, topic, updatedMessages)
+        } catch (err) {
+            console.warn('reverseQA send failed', err)
+            setReverseQAQuestion('请求失败，请稍后重试')
+        } finally {
+            setIsReverseQASending(false)
+        }
+    }
+
     useEffect(() => {
         let mounted = true
             ; (async () => {
@@ -540,6 +712,12 @@ export default function App() {
     }, [role, customRole, userId, page, selectedHistoryRole])
 
     useEffect(() => {
+        if (!userId) return
+        if (page !== 'reverseQA') return
+        refreshReverseQASessions(userId, selectedReverseQASessionId || undefined)
+    }, [userId, page, selectedReverseQASessionId])
+
+    useEffect(() => {
         if (!userId || page !== 'history') return
         if (selectedHistoryRole) return
         const store = loadLocalHistoryStore(userId)
@@ -581,8 +759,41 @@ export default function App() {
         return () => window.clearTimeout(id)
     }, [liveDebate, debatesList, selectedDebateId])
 
+    const mainNavItems = [
+        { key: 'chat', label: '对话', onClick: () => setPage('chat') },
+        {
+            key: 'debate', label: '辩论', onClick: () => {
+                const uid = userId || getOrCreateLocalUserId()
+                setUserId(uid)
+                refreshDebates(uid)
+                setPage('debate')
+            }
+        },
+        { key: 'reverseQA', label: '反向问答', onClick: () => openReverseQA() }
+    ]
+
+    function renderGlobalNav() {
+        return (
+            <div className="global-nav">
+                <div className="global-nav-title">功能入口</div>
+                <div className="global-nav-actions">
+                    {mainNavItems.map(item => (
+                        <button
+                            key={item.key}
+                            className={`btn secondary global-nav-btn ${page === item.key ? 'active' : ''}`}
+                            onClick={item.onClick}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <>
+            {renderGlobalNav()}
             {page === 'chat' && (
                 <div className="app-shell chat-page">
                     <main className="main-panel">
@@ -597,12 +808,6 @@ export default function App() {
                                         refreshHistory(uid, roleToShow)
                                         setPage('history')
                                     }}>查看历史</button>
-                                    <button className="btn secondary" onClick={() => {
-                                        const uid = userId || getOrCreateLocalUserId()
-                                        setUserId(uid)
-                                        refreshDebates(uid)
-                                        setPage('debate')
-                                    }}>人物辩论</button>
                                 </div>
                             </div>
 
@@ -695,6 +900,135 @@ export default function App() {
                             </div>
                         </div>
                     </main>
+                </div>
+            )}
+
+            {page === 'reverseQA' && (
+                <div className="history-page reverseqa-page">
+                    <div className="history-page-header">
+                        <div>
+                            <h1>反向问答</h1>
+                            <div className="muted">让历史人物主动向你提问，你来回答，再继续追问</div>
+                        </div>
+                        <div className="history-page-actions">
+                            <button className="btn secondary" onClick={startNewReverseQASession}>新会话</button>
+                            <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
+                        </div>
+                    </div>
+
+                    <div className="history-page-layout reverseqa-layout">
+                        <aside className="history-sidebar-panel">
+                            <div className="history-sidebar-title">会话</div>
+                            <div className="history-sidebar-list history-role-list reverseqa-session-list">
+                                {reverseQASessions.length === 0 ? (
+                                    <p className="muted">（暂无反向问答会话）</p>
+                                ) : (
+                                    reverseQASessions.map(item => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className={`history-role ${selectedReverseQASessionId === item.id ? 'active' : ''}`}
+                                            onClick={() => loadReverseQASession(item.id)}
+                                        >
+                                            <span className="history-role-name">{item.role}</span>
+                                            <span className="history-role-count">{item.messages.length} 条</span>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        </aside>
+
+                        <section className="history-detail-panel reverseqa-detail-panel">
+                            <div className="history-detail-header history-detail-header-side">
+                                <div>
+                                    <div className="muted">用户 ID: {userId}</div>
+                                    <h3>{selectedReverseQASessionId ? reverseQATopic : '请选择或新建会话'}</h3>
+                                </div>
+                                <div className="history-toolbar history-toolbar-side">
+                                    <button
+                                        className="btn secondary danger"
+                                        onClick={() => selectedReverseQASessionId && removeReverseQASession(selectedReverseQASessionId)}
+                                        disabled={!selectedReverseQASessionId || !reverseQASessions.some(item => item.id === selectedReverseQASessionId)}
+                                    >
+                                        删除会话
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="reverseqa-current-question">
+                                <div className="muted">当前问题</div>
+                                <div className="reverseqa-question-text">{reverseQAQuestion}</div>
+                            </div>
+
+                            <div className="reverseqa-thread reply">
+                                {reverseQAMessages.length === 0 ? (
+                                    <p className="muted">（点击“生成第一问”开始反向问答）</p>
+                                ) : (
+                                    reverseQAMessages.map((message, index) => (
+                                        <div key={`${message.ts}-${index}`} className={`reverseqa-message ${message.speaker === '用户' ? 'user' : 'role'}`}>
+                                            <div className="reverseqa-message-meta">{message.speaker} · {new Date(message.ts).toLocaleTimeString()}</div>
+                                            <div className="reverseqa-message-text">{message.text}</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            <div className="reverseqa-controls">
+                                <div className="field role">
+                                    <label>人物</label>
+                                    <select value={role} onChange={e => setRole(e.target.value)}>
+                                        {roles.map(r => (
+                                            <option key={r} value={r}>{r}</option>
+                                        ))}
+                                    </select>
+                                    {role === '自定义' && (
+                                        <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />
+                                    )}
+                                </div>
+                                <div className="field grow question">
+                                    <label>{reverseQAMessages.length === 0 ? '话题 / 起点' : '我的回答'}</label>
+                                    <textarea
+                                        value={reverseQAMessages.length === 0 ? reverseQATopic : reverseQAInput}
+                                        style={{ overflowY: 'auto' }}
+                                        onChange={e => {
+                                            const value = e.target.value
+                                            if (reverseQAMessages.length === 0) setReverseQATopic(value)
+                                            else setReverseQAInput(value)
+                                        }}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault()
+                                                const ready = reverseQAMessages.length === 0
+                                                    ? (reverseQATopic || '').trim()
+                                                    : (reverseQAInput || '').trim()
+                                                if (ready && !isReverseQASending) sendReverseQA()
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <div className="field send">
+                                    <label>&nbsp;</label>
+                                    <div className="flex">
+                                        <button
+                                            className="btn secondary"
+                                            onClick={() => reverseQAMessages.length === 0 ? setReverseQATopic('') : setReverseQAInput('')}
+                                            disabled={reverseQAMessages.length === 0 ? !(reverseQATopic || '').trim() : !(reverseQAInput || '').trim()}
+                                            style={{ marginLeft: 13, marginRight: 8 }}
+                                        >
+                                            清空
+                                        </button>
+                                        <button
+                                            className="btn primary"
+                                            onClick={sendReverseQA}
+                                            disabled={isReverseQASending || (reverseQAMessages.length === 0 ? !(reverseQATopic || '').trim() : !(reverseQAInput || '').trim())}
+                                        >
+                                            {isReverseQASending ? '发送中...' : (reverseQAMessages.length === 0 ? '生成第一问' : '提交回答并追问')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
                 </div>
             )}
 

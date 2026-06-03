@@ -22,7 +22,9 @@ export const chatRequestSchema = z.object({
     mode: z.string().optional(),
     userId: z.string().optional(),
     debateTopic: z.string().max(2000, 'debateTopic is too long').optional(),
-    debateContext: z.string().max(20000, 'debateContext is too long').optional()
+    debateContext: z.string().max(20000, 'debateContext is too long').optional(),
+    reverseTopic: z.string().max(2000, 'reverseTopic is too long').optional(),
+    reverseStage: z.string().max(32, 'reverseStage is too long').optional()
 })
 
 export const historyGetSchema = z.object({
