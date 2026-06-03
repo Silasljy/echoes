@@ -622,6 +622,7 @@ export default function App() {
                                     <label>问题</label>
                                     <textarea
                                         value={input}
+                                        style={{ overflowY: 'auto' }}
                                         onChange={e => setInput(e.target.value)}
                                         onKeyDown={e => {
                                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -635,7 +636,7 @@ export default function App() {
                                 <div className="field send">
                                     <label>&nbsp;</label>
                                     <div className="flex">
-                                        <button className="btn secondary" onClick={() => setInput('')} disabled={!(input || '').trim()} style={{ marginRight: 8 }}>
+                                        <button className="btn secondary" onClick={() => setInput('')} disabled={!(input || '').trim()} style={{ marginLeft: 13, marginRight: 8 }}>
                                             清空
                                         </button>
                                         <button className="btn primary" onClick={send} disabled={isSending || !(input || '').trim()}>
