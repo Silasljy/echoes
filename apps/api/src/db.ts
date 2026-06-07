@@ -26,6 +26,9 @@ async function loadData(): Promise<{ dialogue_turns: StoredTurn[] }> {
 
     try {
         const raw = await fs.promises.readFile(DB_FILE, 'utf8')
+        if (!raw.trim()) {
+            return { dialogue_turns: [] }
+        }
         const parsed = JSON.parse(raw)
         if (!parsed || !Array.isArray(parsed.dialogue_turns)) {
             throw new Error('invalid dialogue database format')
