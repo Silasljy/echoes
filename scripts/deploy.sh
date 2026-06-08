@@ -69,13 +69,12 @@ fi
 echo "Building backend (@echoes/api)..."
 pnpm --filter @echoes/api build
 
-echo "Restarting pm2 process: $PM2_NAME"
+echo "Restarting pm2 process: $PM2_NAME (cluster mode, ${PM2_INSTANCES:-2} instances)"
 cd "$REPO_ROOT/apps/api" || exit 1
 if pm2 list | grep -q " $PM2_NAME "; then
-  pm2 restart "$PM2_NAME" || pm2 start dist/server.js --name "$PM2_NAME"
-else
-  pm2 start dist/server.js --name "$PM2_NAME"
+  pm2 delete "$PM2_NAME" || true
 fi
+pm2 start dist/server.js --name "$PM2_NAME" -i "${PM2_INSTANCES:-2}"
 pm2 save || true
 
 echo "Testing services..."
