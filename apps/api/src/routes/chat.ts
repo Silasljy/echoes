@@ -76,6 +76,61 @@ router.post('/', async (req, res, next) => {
             return res.json({ reply, evidence: [], analysis: null, debateMeta: null })
         }
 
+        if (mode === 'emotionEcho') {
+            let selectedRole: string | null = null
+            let emotionLabel = '未识别'
+
+            if (role === '随机') {
+                // Combined: AI freely picks any historical figure + generates response in one call
+                if (process.env.DEEPSEEK_API_KEY) {
+                    try {
+                        const result = await LLMProvider.generateEmotionEchoWithAutoSelect(input)
+                        reply = result.reply
+                        emotionLabel = result.emotionLabel
+                        selectedRole = result.selectedRole
+                    } catch (e) {
+                        console.error('DeepSeek emotionEcho auto-select failed, falling back to mock:', e)
+                        const allRoles = ConstitutionService.listRoles()
+                        const mockResult = await LLM.generateEmotionEchoWithAutoSelect(input, allRoles)
+                        reply = mockResult.reply
+                        emotionLabel = mockResult.emotionLabel
+                        selectedRole = mockResult.selectedRole
+                    }
+                } else {
+                    const allRoles = ConstitutionService.listRoles()
+                    const mockResult = await LLM.generateEmotionEchoWithAutoSelect(input, allRoles)
+                    reply = mockResult.reply
+                    emotionLabel = mockResult.emotionLabel
+                    selectedRole = mockResult.selectedRole
+                }
+            } else {
+                // Fixed role
+                const emotionMemoryPack = await ContextManager.buildMemoryPack(uid, role, input)
+                if (process.env.DEEPSEEK_API_KEY) {
+                    try {
+                        const emotionResult = await LLMProvider.generateEmotionEcho({ constitution, input, emotionLabel })
+                        reply = emotionResult.reply
+                        emotionLabel = emotionResult.emotionLabel
+                    } catch (e) {
+                        console.error('DeepSeek emotionEcho call failed, falling back to mock:', e)
+                        const mockResult = await LLM.generateEmotionEcho({ constitution, input, emotionLabel })
+                        reply = mockResult.reply
+                        emotionLabel = mockResult.emotionLabel
+                    }
+                } else {
+                    const mockResult = await LLM.generateEmotionEcho({ constitution, input, emotionLabel })
+                    reply = mockResult.reply
+                    emotionLabel = mockResult.emotionLabel
+                }
+            }
+
+            // Persist the turn
+            const persistRole = selectedRole || role
+            await ContextManager.appendTurn(uid, persistRole, { user: input, assistant: reply })
+
+            return res.json({ reply, evidence: [], analysis: null, debateMeta: null, emotionLabel, selectedRole })
+        }
+
         if (mode === 'debate') {
             const debateMemoryPack = await ContextManager.buildMemoryPack(uid, role, input)
             let parsedDebateContext: any[] = []

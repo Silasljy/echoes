@@ -22,7 +22,7 @@ export default function App() {
     const [evidence, setEvidence] = useState<any>(null)
     const [expandedEvidence, setExpandedEvidence] = useState<number[]>([])
     const [userId, setUserId] = useState<string | null>(null)
-    const [page, setPage] = useState<'chat' | 'history' | 'debate' | 'debateHistory' | 'reverseQA' | 'reverseQAHistory'>('chat')
+    const [page, setPage] = useState<'chat' | 'history' | 'debate' | 'debateHistory' | 'reverseQA' | 'reverseQAHistory' | 'emotionEcho'>('chat')
     const [historyStore, setHistoryStore] = useState<HistoryStore>({})
     const [selectedHistoryRole, setSelectedHistoryRole] = useState('')
     const [exportFormat, setExportFormat] = useState<'markdown' | 'txt'>('markdown')
@@ -50,6 +50,13 @@ export default function App() {
     const [isReverseQASending, setIsReverseQASending] = useState(false)
     const [reverseQAQuestion, setReverseQAQuestion] = useState('（尚未开始）')
     const reverseQAImportRef = React.useRef<HTMLInputElement | null>(null)
+
+    // emotion echo states
+    const [emotionInput, setEmotionInput] = useState('我今天很难过')
+    const [emotionReply, setEmotionReply] = useState<string | null>(null)
+    const [emotionLabel, setEmotionLabel] = useState<string | null>(null)
+    const [emotionSelectedRole, setEmotionSelectedRole] = useState<string | null>(null)
+    const [isEmotionSending, setIsEmotionSending] = useState(false)
 
     function genClientMessageId() {
         return `c-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
@@ -886,6 +893,44 @@ export default function App() {
         }
     }
 
+    async function sendEmotionEcho() {
+        const trimmed = (emotionInput || '').trim()
+        if (!trimmed) return
+        if (isEmotionSending) return
+
+        setIsEmotionSending(true)
+        setEmotionReply(null)
+        setEmotionLabel(null)
+        setEmotionSelectedRole(null)
+        const roleToSend = role === '自定义' ? (customRole || '未知人物') : role
+        const uid = userId || getOrCreateLocalUserId()
+        if (!userId) setUserId(uid)
+
+        const clientMessageId = genClientMessageId()
+        try {
+            const res = await fetch(`${apiBase}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role: roleToSend,
+                    input: trimmed,
+                    userId: uid,
+                    mode: 'emotionEcho',
+                    clientMessageId
+                })
+            })
+            const data = await res.json()
+            setEmotionReply(data.reply || '（无回应）')
+            setEmotionLabel(data.emotionLabel || null)
+            setEmotionSelectedRole(data.selectedRole || null)
+        } catch (err) {
+            console.warn('emotionEcho send failed', err)
+            setEmotionReply('请求失败，请稍后重试')
+        } finally {
+            setIsEmotionSending(false)
+        }
+    }
+
     useEffect(() => {
         let mounted = true
             ; (async () => {
@@ -1006,7 +1051,8 @@ export default function App() {
                 setPage('debate')
             }
         },
-        { key: 'reverseQA', label: '反向问答', onClick: () => openReverseQA() }
+        { key: 'reverseQA', label: '反向问答', onClick: () => openReverseQA() },
+        { key: 'emotionEcho', label: '情绪回响', onClick: () => { setRole('随机'); setPage('emotionEcho'); setEmotionReply(null); setEmotionLabel(null); setEmotionSelectedRole(null) } }
     ]
 
     function renderGlobalNav() {
@@ -1015,6 +1061,7 @@ export default function App() {
             if (key === 'reverseQA' && page === 'reverseQAHistory') return true
             if (key === 'debate' && page === 'debateHistory') return true
             if (key === 'chat' && page === 'history') return true
+            if (key === 'emotionEcho' && page === 'emotionEcho') return true
             return false
         }
 
@@ -1350,6 +1397,93 @@ export default function App() {
                             </div>
                         </section>
                     </div>
+                </div>
+            )}
+
+            {page === 'emotionEcho' && (
+                <div className="app-shell emotion-echo-page">
+                    <main className="main-panel">
+                        <div className="container emotion-echo-container">
+                            <div className="topbar emotion-echo-topbar">
+                                <div>
+                                    <h1>Echoes — 情绪回响</h1>
+                                    <div className="muted">倾诉你的心情，让历史人物以他们的智慧回应你</div>
+                                </div>
+                            </div>
+
+                            <section className="emotion-echo-main-panel">
+                                <div className="emotion-echo-input-area">
+                                    <div className="field role">
+                                        <label>回应人物</label>
+                                        <select value={role} onChange={e => setRole(e.target.value)}>
+                                            <option value="随机">随机（AI 推荐）</option>
+                                            {roles.filter(r => r !== '自定义').map(r => (
+                                                <option key={r} value={r}>{r}</option>
+                                            ))}
+                                            <option value="自定义">自定义</option>
+                                        </select>
+                                        {role === '自定义' && (
+                                            <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />
+                                        )}
+                                    </div>
+                                    <div className="field grow">
+                                        <label>此刻的心情 / 想说的话</label>
+                                        <textarea
+                                            value={emotionInput}
+                                            style={{ overflowY: 'auto' }}
+                                            onChange={e => setEmotionInput(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault()
+                                                    const trimmed = (emotionInput || '').trim()
+                                                    if (trimmed && !isEmotionSending) sendEmotionEcho()
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="field send">
+                                        <label>&nbsp;</label>
+                                        <div className="flex">
+                                            <button
+                                                className="btn secondary"
+                                                onClick={() => setEmotionInput('')}
+                                                disabled={!(emotionInput || '').trim()}
+                                            >
+                                                清空
+                                            </button>
+                                            <button
+                                                className="btn primary"
+                                                onClick={sendEmotionEcho}
+                                                disabled={isEmotionSending || !(emotionInput || '').trim()}
+                                            >
+                                                {isEmotionSending ? '发送中...' : '发送'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="emotion-echo-result">
+                                    {emotionLabel && (
+                                        <div className="emotion-analysis-badge">检测到情绪：{emotionLabel}</div>
+                                    )}
+                                    {emotionSelectedRole && role === '随机' && (
+                                        <div className="emotion-selected-role">→ {emotionSelectedRole} 回应你</div>
+                                    )}
+                                    <div className="emotion-echo-reply">
+                                        {emotionReply ? (
+                                            <div className="emotion-echo-reply-content">
+                                                {emotionReply.split('\n').map((line, i) => (
+                                                    line.trim() ? <p key={i}>{line}</p> : <br key={i} />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="muted">输入你的心情，点击"发送"让历史人物回应你</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                    </main>
                 </div>
             )}
 

@@ -207,6 +207,123 @@ textarea {
     min-height: calc(100vh - var(--space-12));
 }
 
+.emotion-echo-page {
+    display: block;
+    min-height: calc(100vh - var(--space-12));
+}
+
+.emotion-echo-container {
+    max-width: 900px;
+}
+
+.emotion-echo-topbar {
+    align-items: flex-start;
+}
+
+.emotion-echo-topbar .muted {
+    margin-top: 4px;
+}
+
+.emotion-echo-main-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    margin-top: var(--space-4);
+}
+
+.emotion-echo-input-area {
+    display: grid;
+    grid-template-columns: minmax(160px, 220px) 1fr minmax(180px, 260px);
+    gap: var(--space-3);
+    align-items: end;
+}
+
+.emotion-echo-input-area .field.grow {
+    min-width: 0;
+}
+
+.emotion-echo-input-area .field.send {
+    align-items: stretch;
+}
+
+.emotion-echo-input-area .field.send .flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.emotion-echo-input-area .field.send .btn {
+    flex: 1 1 120px;
+    min-width: 112px;
+    margin: 0;
+}
+
+.emotion-echo-result {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.emotion-analysis-badge {
+    display: inline-block;
+    background: linear-gradient(90deg, #f0ebe1 0%, #e7d8b9 100%);
+    color: var(--color-primary);
+    font-size: var(--text-sm);
+    padding: 6px 14px;
+    border-radius: 999px;
+    letter-spacing: 1px;
+    align-self: flex-start;
+    margin-top: 13px;
+}
+
+.emotion-selected-role {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    padding-left: 4px;
+}
+
+.emotion-echo-reply {
+    background: linear-gradient(180deg, #fffdf7 0%, #faf4e7 100%);
+    border: 1px solid var(--color-neutral-300);
+    border-radius: var(--radius-2);
+    padding: 20px 24px;
+    box-shadow: var(--shadow-1);
+    min-height: 120px;
+    margin-top: 20px;
+}
+
+.emotion-echo-reply-content {
+    font-size: 17px;
+    line-height: 2;
+    color: var(--text-primary);
+}
+
+.emotion-echo-reply-content p {
+    margin: 0 0 8px 0;
+}
+
+.emotion-echo-reply .muted {
+    margin-top: 8px;
+}
+
+@media (max-width: 800px) {
+    .emotion-echo-input-area {
+        grid-template-columns: 1fr;
+    }
+
+    .emotion-echo-input-area .field.send .flex {
+        justify-content: stretch;
+    }
+
+    .emotion-echo-input-area .field.send .btn {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
 .reverseqa-container {
     max-width: 1180px;
 }

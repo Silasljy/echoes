@@ -26,6 +26,11 @@ type ReverseQuestionResult = {
     }
 }
 
+type EmotionEchoResult = {
+    reply: string
+    emotionLabel: string
+}
+
 function clampDebateText(text: string, maxLength: number) {
     const trimmed = String(text || '').trim()
     if (trimmed.length <= maxLength) return trimmed
@@ -362,4 +367,120 @@ ${recentTurns || '无'}
 
         return out.slice(0, limit)
     }
+
+    ,
+    async generateEmotionEcho({ constitution, input, emotionLabel }:
+        { constitution: Constitution; input: string; emotionLabel: string }): Promise<EmotionEchoResult> {
+        const API_KEY = process.env.DEEPSEEK_API_KEY
+        const API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1'
+        if (!API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
+
+        const systemPrompt = `你正在扮演一位情绪共情者。用户的输入表达了某种情绪，你需要：
+1) 先快速分析用户输入中的情绪倾向（如：悲伤、焦虑、愤怒、孤独、迷茫、喜悦、平和等），只输出一个简短标签。
+2) 然后以历史人物 ${constitution.name || '该角色'} 的口吻，给出符合该人物性格、时代背景和知识范围的回应。
+   - ${constitution.name} 应当用其时代的语言风格安慰、开导或回应用户的情感。
+   - 不得使用现代心理学词汇、AI术语或角色去世后的知识。
+   - 回应应温和、有哲理，且符合人物的核心思想（如孔子重仁、老子重道、庄子重逍遥等）。
+3) 输出必须是严格 JSON，格式如下：
+{
+  "reply": "历史人物的回应正文",
+  "emotionLabel": "检测到的情绪标签"
+}
+
+请只输出 JSON，不要输出任何额外说明。`;
+
+        const userPrompt = `用户说：${input}`;
+
+        try {
+            const resp = await axios.post(
+                `${API_URL}/chat/completions`,
+                {
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    temperature: 0.4,
+                    max_tokens: 300
+                },
+                { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` } }
+            )
+
+            const raw = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
+            const text = String(raw).replace(/```json\s*|```/g, '').trim()
+
+            try {
+                const parsed = JSON.parse(text)
+                const reply = clampDebateText(String(parsed.reply || text), 300)
+                const label = clampDebateText(String(parsed.emotionLabel || '未识别'), 20)
+                return { reply, emotionLabel: label }
+            } catch (_) {
+                return { reply: clampDebateText(text, 300), emotionLabel: '未识别' }
+            }
+        } catch (err: any) {
+            console.error('DeepSeek emotionEcho call failed:', err.response?.data || err.message)
+            throw err
+        }
+    },
+
+    // Combined: analyze emotion, freely pick the best historical figure, and generate response in one LLM call
+    async generateEmotionEchoWithAutoSelect(input: string): Promise<EmotionEchoResult & { selectedRole: string }> {
+        const API_KEY = process.env.DEEPSEEK_API_KEY
+        const API_URL = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1'
+        if (!API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
+
+        const systemPrompt = `你是一位情绪共情者。用户的输入表达了某种情绪，你需要完成以下任务：
+
+1) 分析用户输入中的情绪倾向（如：悲伤、焦虑、愤怒、孤独、迷茫、喜悦、平和等），给出简短标签。
+2) 从人类历史上所有人物中，自由选择一位最合适回应用户当前情绪的人物。考虑因素：
+   - 此人的思想、言论、性格最能针对该情绪给出有深度、有共鸣的回应。
+   - 此人的语言风格最适合安慰、开导或共情。
+   - 尽量常见，但也不必局限于常见人物，可以大胆选择任何历史人物。
+   - 少选择孔子等人物，而是一些让人眼前一亮的人物
+   - 不要编造任务，少选择极其少为人知的人物.
+3) 以你选择的历史人物的口吻，给出符合该人物性格、时代背景和知识范围的回应。
+   - 使用其时代的语言风格，不得使用现代心理学词汇、AI术语或人物去世后的知识。
+   - 回应应温和、有哲理，且符合该人物的核心思想。
+
+4) 输出必须是严格 JSON，格式如下：
+{
+  "selectedRole": "选择的人物名称",
+  "reply": "该历史人物的回应正文",
+  "emotionLabel": "检测到的情绪标签"
+}
+
+请只输出 JSON，不要输出任何额外说明。`;
+
+        try {
+            const resp = await axios.post(
+                `${API_URL}/chat/completions`,
+                {
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: `用户说：${input}` }
+                    ],
+                    temperature: 0.5,
+                    max_tokens: 500
+                },
+                { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` } }
+            )
+
+            const raw = resp.data?.choices?.[0]?.message?.content || resp.data?.output || JSON.stringify(resp.data)
+            const text = String(raw).replace(/```json\s*|```/g, '').trim()
+
+            try {
+                const parsed = JSON.parse(text)
+                const reply = clampDebateText(String(parsed.reply || text), 400)
+                const label = clampDebateText(String(parsed.emotionLabel || '未识别'), 20)
+                const selectedRole = String(parsed.selectedRole || '').trim()
+                return { reply, emotionLabel: label, selectedRole: selectedRole || '未知人物' }
+            } catch (_) {
+                return { reply: clampDebateText(text, 300), emotionLabel: '未识别', selectedRole: '未知人物' }
+            }
+        } catch (err: any) {
+            console.error('DeepSeek emotionEcho auto-select call failed:', err.response?.data || err.message)
+            throw err
+        }
+    },
 }
