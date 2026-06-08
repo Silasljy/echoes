@@ -309,6 +309,13 @@ textarea {
     margin-top: 8px;
 }
 
+.emotion-echo-history-meta {
+    font-size: var(--text-sm);
+    color: var(--color-primary);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+
 @media (max-width: 800px) {
     .emotion-echo-input-area {
         grid-template-columns: 1fr;

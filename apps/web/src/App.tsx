@@ -4,6 +4,7 @@ type LocalTurn = { user: string; assistant: string; ts: number }
 type HistoryStore = Record<string, LocalTurn[]>
 type ReverseQAMessage = { speaker: string; text: string; ts: number }
 type ReverseQASession = { id: string; role: string; topic: string; messages: ReverseQAMessage[]; createdAt: number; updatedAt: number }
+type EmotionEchoRecord = { input: string; reply: string; emotionLabel: string; selectedRole: string; ts: number }
 
 export default function App() {
     const [role, setRole] = useState('孔子')
@@ -57,6 +58,7 @@ export default function App() {
     const [emotionLabel, setEmotionLabel] = useState<string | null>(null)
     const [emotionSelectedRole, setEmotionSelectedRole] = useState<string | null>(null)
     const [isEmotionSending, setIsEmotionSending] = useState(false)
+    const [emotionEchoHistoryStore, setEmotionEchoHistoryStore] = useState<EmotionEchoRecord[]>([])
 
     function genClientMessageId() {
         return `c-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
@@ -762,6 +764,105 @@ export default function App() {
         setPage('reverseQAHistory')
     }
 
+    // Emotion echo storage
+    function emotionEchoStorageKey(uid: string) {
+        return `echoes.emotionEcho.${uid}`
+    }
+
+    function loadEmotionEchoHistory(uid: string): EmotionEchoRecord[] {
+        try {
+            const raw = localStorage.getItem(emotionEchoStorageKey(uid))
+            return raw ? JSON.parse(raw) : []
+        } catch { return [] }
+    }
+
+    function saveEmotionEchoTurn(uid: string, record: EmotionEchoRecord) {
+        try {
+            const key = emotionEchoStorageKey(uid)
+            const list = loadEmotionEchoHistory(uid)
+            list.push(record)
+            // cap at 200 entries
+            while (list.length > 200) list.shift()
+            localStorage.setItem(key, JSON.stringify(list))
+        } catch (e) {
+            console.warn('save emotionEcho history failed', e)
+        }
+    }
+
+    function deleteEmotionEchoTurn(uid: string, index: number) {
+        try {
+            const key = emotionEchoStorageKey(uid)
+            const list = loadEmotionEchoHistory(uid)
+            if (index < 0 || index >= list.length) return
+            list.splice(index, 1)
+            localStorage.setItem(key, JSON.stringify(list))
+        } catch (e) {
+            console.warn('delete emotionEcho turn failed', e)
+        }
+    }
+
+    function clearEmotionEchoHistory(uid: string) {
+        try {
+            localStorage.removeItem(emotionEchoStorageKey(uid))
+        } catch (e) {
+            console.warn('clear emotionEcho history failed', e)
+        }
+    }
+
+    function buildEmotionEchoExport(records: EmotionEchoRecord[], format: 'markdown' | 'txt') {
+        const generatedAt = new Date().toLocaleString()
+        if (format === 'txt') {
+            const lines = [
+                'Echoes 情绪回响记录',
+                `导出时间：${generatedAt}`,
+                `条目数：${records.length}`,
+                '',
+                ...records.flatMap((r, i) => [
+                    `【第 ${i + 1} 条】`,
+                    `时间：${new Date(r.ts).toLocaleString()}`,
+                    `情绪：${r.emotionLabel}`,
+                    `回应人物：${r.selectedRole}`,
+                    `用户：${r.input}`,
+                    `回应：${r.reply}`,
+                    ''
+                ])
+            ]
+            return lines.join('\n')
+        }
+        const lines = [
+            '# Echoes 情绪回响记录',
+            '',
+            `- 导出时间：${generatedAt}`,
+            `- 条目数：${records.length}`,
+            '',
+            ...records.flatMap((r, i) => [
+                `## 第 ${i + 1} 条`,
+                '',
+                `- 时间：${new Date(r.ts).toLocaleString()}`,
+                `- 情绪：${r.emotionLabel}`,
+                `- 回应人物：${r.selectedRole}`,
+                '',
+                '### 用户输入',
+                '```text',
+                r.input,
+                '```',
+                '',
+                '### 历史人物回应',
+                '```text',
+                r.reply,
+                '```',
+                ''
+            ])
+        ]
+        return lines.join('\n')
+    }
+
+    function refreshEmotionEchoHistory(uid: string) {
+        const list = loadEmotionEchoHistory(uid)
+        setEmotionEchoHistoryStore(list)
+        return list
+    }
+
     async function importReverseQAFile(file: File) {
         const uid = userId || getOrCreateLocalUserId()
         const text = await file.text()
@@ -923,6 +1024,16 @@ export default function App() {
             setEmotionReply(data.reply || '（无回应）')
             setEmotionLabel(data.emotionLabel || null)
             setEmotionSelectedRole(data.selectedRole || null)
+
+            // Save locally
+            const record: EmotionEchoRecord = {
+                input: trimmed,
+                reply: data.reply || '',
+                emotionLabel: data.emotionLabel || '未识别',
+                selectedRole: data.selectedRole || roleToSend,
+                ts: Date.now()
+            }
+            saveEmotionEchoTurn(uid, record)
         } catch (err) {
             console.warn('emotionEcho send failed', err)
             setEmotionReply('请求失败，请稍后重试')
@@ -1042,16 +1153,17 @@ export default function App() {
     }, [liveDebate, debatesList, selectedDebateId])
 
     const mainNavItems = [
-        { key: 'chat', label: '对话', onClick: () => setPage('chat') },
+        { key: 'chat', label: '对话', onClick: () => { if (role === '随机') setRole('孔子'); setPage('chat') } },
         {
             key: 'debate', label: '辩论', onClick: () => {
+                if (role === '随机') setRole('孔子')
                 const uid = userId || getOrCreateLocalUserId()
                 setUserId(uid)
                 refreshDebates(uid)
                 setPage('debate')
             }
         },
-        { key: 'reverseQA', label: '反向问答', onClick: () => openReverseQA() },
+        { key: 'reverseQA', label: '反向问答', onClick: () => { if (role === '随机') setRole('孔子'); openReverseQA() } },
         { key: 'emotionEcho', label: '情绪回响', onClick: () => { setRole('随机'); setPage('emotionEcho'); setEmotionReply(null); setEmotionLabel(null); setEmotionSelectedRole(null) } }
     ]
 
@@ -1062,6 +1174,7 @@ export default function App() {
             if (key === 'debate' && page === 'debateHistory') return true
             if (key === 'chat' && page === 'history') return true
             if (key === 'emotionEcho' && page === 'emotionEcho') return true
+            if (key === 'emotionEcho' && page === 'emotionEchoHistory') return true
             return false
         }
 
@@ -1210,7 +1323,7 @@ export default function App() {
                                         导入
                                     </button>
                                     <button className="btn secondary" onClick={startNewReverseQASession}>新会话</button>
-                                    <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
+                                    <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
                                 </div>
                             </div>
 
@@ -1317,7 +1430,7 @@ export default function App() {
                             <div className="muted">按会话查看本地反向问答记录，并可导出或删除</div>
                         </div>
                         <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => setPage('reverseQA')}>返回反向问答</button>
+                            <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('reverseQA') }}>返回反向问答</button>
                             <button className="btn secondary" onClick={() => reverseQAImportRef.current?.click()}>导入会话</button>
                         </div>
                     </div>
@@ -1409,6 +1522,14 @@ export default function App() {
                                     <h1>Echoes — 情绪回响</h1>
                                     <div className="muted">倾诉你的心情，让历史人物以他们的智慧回应你</div>
                                 </div>
+                                <div className="reverseqa-topbar-actions">
+                                    <button className="btn secondary" onClick={() => {
+                                        const uid = userId || getOrCreateLocalUserId()
+                                        setUserId(uid)
+                                        refreshEmotionEchoHistory(uid)
+                                        setPage('emotionEchoHistory')
+                                    }}>历史</button>
+                                </div>
                             </div>
 
                             <section className="emotion-echo-main-panel">
@@ -1487,6 +1608,100 @@ export default function App() {
                 </div>
             )}
 
+            {page === 'emotionEchoHistory' && (
+                <div className="history-page">
+                    <div className="history-page-header">
+                        <div>
+                            <h1>情绪回响记录</h1>
+                            <div className="muted">查看本地情绪回响历史，并可导出或删除</div>
+                        </div>
+                        <div className="history-page-actions">
+                            <button className="btn secondary" onClick={() => setPage('emotionEcho')}>返回情绪回响</button>
+                        </div>
+                    </div>
+
+                    <div className="history-page-layout">
+                        <aside className="history-sidebar-panel">
+                            <div className="history-sidebar-title">情绪记录</div>
+                            <div className="history-sidebar-list">
+                                <div className="history-role" style={{ cursor: 'default' }}>
+                                    <span className="history-role-name">全部记录</span>
+                                    <span className="history-role-count">{emotionEchoHistoryStore.length} 条</span>
+                                </div>
+                            </div>
+                        </aside>
+
+                        <section className="history-detail-panel">
+                            <div className="history-detail-header history-detail-header-side">
+                                <div>
+                                    <div className="muted">用户 ID: {userId}</div>
+                                    <h3>情绪回响 · 全部记录</h3>
+                                </div>
+                                <div className="history-toolbar history-toolbar-side">
+                                    <label className="history-export-label">
+                                        <span>导出格式</span>
+                                        <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
+                                            <option value="markdown">Markdown</option>
+                                            <option value="txt">TXT</option>
+                                        </select>
+                                    </label>
+                                    <button
+                                        className="btn secondary"
+                                        onClick={() => {
+                                            if (!userId || emotionEchoHistoryStore.length === 0) return
+                                            const ext = exportFormat === 'markdown' ? 'md' : 'txt'
+                                            const content = buildEmotionEchoExport(emotionEchoHistoryStore, exportFormat)
+                                            const filename = `echoes-emotion-echo-${new Date().toISOString().slice(0, 10)}.${ext}`
+                                            const mime = exportFormat === 'markdown' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
+                                            triggerDownload(filename, content, mime)
+                                        }}
+                                        disabled={emotionEchoHistoryStore.length === 0}
+                                    >
+                                        导出全部
+                                    </button>
+                                    <button
+                                        className="btn secondary danger"
+                                        onClick={() => {
+                                            if (!userId) return
+                                            clearEmotionEchoHistory(userId)
+                                            refreshEmotionEchoHistory(userId)
+                                        }}
+                                        disabled={emotionEchoHistoryStore.length === 0}
+                                    >
+                                        清除全部
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="history-thread">
+                                {emotionEchoHistoryStore.length === 0 ? (
+                                    <p className="muted">（暂无情绪回响记录）</p>
+                                ) : (
+                                    emotionEchoHistoryStore.slice().reverse().map((r, displayIndex) => {
+                                        const realIndex = emotionEchoHistoryStore.length - 1 - displayIndex
+                                        return (
+                                            <div key={`${r.ts}-${displayIndex}`} className="history-item">
+                                                <div className="history-item-head">
+                                                    <div className="meta">{new Date(r.ts).toLocaleString()} · 情绪：{r.emotionLabel}</div>
+                                                    <button className="history-item-delete" onClick={() => {
+                                                        if (!userId) return
+                                                        deleteEmotionEchoTurn(userId, realIndex)
+                                                        refreshEmotionEchoHistory(userId)
+                                                    }}>删除</button>
+                                                </div>
+                                                <div className="emotion-echo-history-meta">回应人物：{r.selectedRole}</div>
+                                                <div><strong>用户：</strong> {r.input}</div>
+                                                <div className="mt-2"><strong>回应：</strong> {r.reply}</div>
+                                            </div>
+                                        )
+                                    })
+                                )}
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            )}
+
             {page === 'history' && (
                 <div className="history-page">
                     <div className="history-page-header">
@@ -1495,7 +1710,7 @@ export default function App() {
                             <div className="muted">按人物浏览本地对话，并可导出或删除</div>
                         </div>
                         <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
+                            <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
                         </div>
                     </div>
 
@@ -1586,7 +1801,7 @@ export default function App() {
                             <div className="muted">选择或输入最多 3 人，系统生成 3 轮辩论并可本地保存</div>
                         </div>
                         <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => setPage('chat')}>返回主对话</button>
+                            <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
                             <button className="btn secondary" onClick={openDebateHistory}>查看辩论历史</button>
                         </div>
                     </div>
